@@ -1,59 +1,171 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Pioneer CNC
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Frontend web application untuk operasional Pioneer CNC. Project ini dibangun dengan Laravel dan berfungsi sebagai layer UI yang berkomunikasi ke API backend `pioneer-cnc-be`.
 
-## About Laravel
+Repository ini menangani:
+- autentikasi dan session user
+- master data
+- transaksi invoice
+- pembayaran
+- produksi dan list penjualan
+- laporan operasional
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Backend API belum dibahas di README ini. Dokumentasi backend bisa dibuat terpisah di repository `pioneer-cnc-be`.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.2+
+- Laravel 12
+- Livewire 4
+- Vite
+- Tailwind CSS
 
-## Learning Laravel
+## Gambaran Singkat
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Project `pioneer-cnc` bukan backend data utama. Aplikasi ini mengambil data dari API backend melalui konfigurasi `BACKEND_API_URL`.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Secara sederhana alurnya seperti ini:
 
-## Laravel Sponsors
+1. User login dari aplikasi frontend.
+2. Frontend menyimpan token/session hasil autentikasi.
+3. Halaman-halaman frontend memanggil API backend untuk data master, transaksi, pembayaran, dan laporan.
+4. Frontend merender data ke Blade views untuk kebutuhan operasional harian.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Fitur Utama
 
-### Premium Partners
+- Dashboard
+- Master data:
+  cabang, user, pelanggan, sales, mesin, plat, komponen, kategori, tipe biaya
+- Transaksi:
+  invoice, machine order, pembayaran
+- Produksi:
+  list penjualan, upload file, update status
+- Laporan:
+  ranking pelanggan, KPI sales, rekap invoice, rekap pembayaran, rekap penjualan, piutang, stok
+- Role dan permission berbasis menu
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Struktur Penting
 
-## Contributing
+- `app/Http/Controllers`
+  controller halaman dan integrasi ke backend API
+- `resources/views`
+  Blade templates untuk seluruh halaman
+- `routes/web.php`
+  routing utama aplikasi
+- `config/services.php`
+  konfigurasi URL backend API
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Setup Lokal
 
-## Code of Conduct
+1. Clone repository ini.
+2. Install dependency PHP dan Node.js.
+3. Copy `.env`.
+4. Set URL backend API.
+5. Jalankan aplikasi.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Contoh:
 
-## Security Vulnerabilities
+```powershell
+composer install
+copy .env.example .env
+php artisan key:generate
+npm install
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Lalu ubah `.env`:
 
-## License
+```env
+APP_NAME="Pioneer CNC"
+APP_URL=http://localhost:8000
+BACKEND_API_URL=http://localhost:8001/api
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Menjalankan Project
+
+Untuk development:
+
+```powershell
+composer run dev
+```
+
+Command ini akan menjalankan:
+- Laravel development server
+- queue listener
+- log watcher
+- Vite dev server
+
+Kalau ingin manual:
+
+```powershell
+php artisan serve
+npm run dev
+```
+
+## Build Asset
+
+Untuk build production asset:
+
+```powershell
+npm run build
+```
+
+## Testing
+
+Menjalankan test:
+
+```powershell
+composer run test
+```
+
+## Environment Penting
+
+Beberapa konfigurasi yang paling sering dipakai:
+
+```env
+APP_URL=http://localhost:8000
+BACKEND_API_URL=http://localhost:8001/api
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+```
+
+## Integrasi Dengan Backend
+
+Frontend ini mengandalkan backend API untuk hampir semua data utama. Pastikan repository `pioneer-cnc-be` sudah berjalan dan URL API-nya sesuai dengan `BACKEND_API_URL`.
+
+Secara default, project ini membaca konfigurasi dari:
+
+```php
+config('services.pioneer.api_url')
+```
+
+Lihat file:
+`config/services.php`
+
+## Catatan Pengembangan
+
+- Jika halaman gagal memuat data, cek lebih dulu apakah backend API aktif.
+- Jika login berhasil tetapi menu tidak sesuai, cek data role dan permission dari backend.
+- Jika asset tidak tampil benar, pastikan Vite berjalan atau hasil build sudah dibuat.
+- Jika ada masalah session atau cache, coba jalankan:
+
+```powershell
+php artisan optimize:clear
+```
+
+## Scripts Yang Tersedia
+
+Di `composer.json`:
+
+- `composer run setup`
+- `composer run dev`
+- `composer run test`
+
+Di `package.json`:
+
+- `npm run dev`
+- `npm run build`
+
+## Status
+
+Repository ini adalah frontend aplikasi internal Pioneer CNC dan aktif digunakan untuk kebutuhan operasional.
