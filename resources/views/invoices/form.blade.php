@@ -94,6 +94,7 @@
                                 <select name="invoice_type" x-model="invoiceType" @change="handleInvoiceTypeChanged()" class="form-input">
                                     <option value="sales">Penjualan Reguler</option>
                                     <option value="machine_order">Order Mesin</option>
+                                    <option value="service_order">Order Jasa</option>
                                 </select>
                             </div>
 
@@ -131,6 +132,17 @@
                                 />
                             </div>
 
+                            <div x-show="invoiceType === 'service_order'" style="display: none;">
+                                <x-searchable-select
+                                    name="service_order_id"
+                                    label="Nomor Order Jasa"
+                                    :options="[]"
+                                    :selected="null"
+                                    placeholder="Cari nomor order jasa..."
+                                    description-key="description"
+                                />
+                            </div>
+
                             <div x-show="invoiceType === 'sales'" class="md:col-span-2" style="display: none;">
                                 <p class="text-xs text-slate-400 -mt-3">
                                     Mesin produksi bersifat opsional untuk semua jenis pesanan, termasuk plat dan jasa cutting.
@@ -158,6 +170,27 @@
                                 </div>
                             </div>
 
+                            <div x-show="invoiceType === 'service_order' && selectedServiceOrder" class="md:col-span-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-sm text-sky-800" style="display: none;">
+                                <div class="grid gap-2 md:grid-cols-2">
+                                    <div>
+                                        <p class="text-xs uppercase tracking-wider text-sky-600">Pelanggan</p>
+                                        <p class="font-semibold" x-text="selectedServiceOrder?.customer_name || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs uppercase tracking-wider text-sky-600">Jenis Order</p>
+                                        <p class="font-semibold" x-text="selectedServiceOrder?.order_type_label || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs uppercase tracking-wider text-sky-600">Judul</p>
+                                        <p class="font-semibold" x-text="selectedServiceOrder?.title || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs uppercase tracking-wider text-sky-600">Status</p>
+                                        <p class="font-semibold" x-text="selectedServiceOrder?.status_label || '-'"></p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div x-show="masterDataLoading" class="md:col-span-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-700" style="display: none;">
                                 <div class="flex items-start gap-3">
                                     <svg class="mt-0.5 h-5 w-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
@@ -166,7 +199,7 @@
                                     </svg>
                                     <div>
                                         <p class="font-semibold">Sedang memuat data invoice</p>
-                                        <p class="mt-1 text-xs text-blue-600">Pelanggan, mesin, plat, komponen, cutting price, dan order mesin sedang disiapkan.</p>
+                                        <p class="mt-1 text-xs text-blue-600">Pelanggan, mesin, plat, komponen, cutting price, order mesin, dan order jasa sedang disiapkan.</p>
                                     </div>
                                 </div>
                             </div>
@@ -231,6 +264,9 @@
                             <p x-show="invoiceType === 'machine_order'" class="text-xs text-slate-500 mt-2" style="display: none;">
                                 Invoice order mesin dibuat dari snapshot machine order yang sudah selesai atau siap ditagihkan.
                             </p>
+                            <p x-show="invoiceType === 'service_order'" class="text-xs text-slate-500 mt-2" style="display: none;">
+                                Invoice order jasa dibuat dari order servis atau pelatihan yang sudah siap ditagihkan.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -241,7 +277,9 @@
                             <h2 class="font-bold text-slate-900">Daftar Item</h2>
                             <p class="text-sm text-slate-500 mt-1" x-text="invoiceType === 'machine_order'
                                 ? 'Item ditarik otomatis dari machine order yang dipilih.'
-                                : 'Tambah item dari master plat, component, tipe biaya, atau cutting price.'"></p>
+                                : (invoiceType === 'service_order'
+                                    ? 'Item ditarik dari order jasa terpilih dan masih bisa disesuaikan.'
+                                    : 'Tambah item dari master plat, component, tipe biaya, atau cutting price.')"></p>
                         </div>
                         <button type="button" x-show="invoiceType === 'sales'" @click="openItemModal()" class="btn btn-primary" style="display: none;">
                             <span>Tambah Item</span>
@@ -274,14 +312,18 @@
                                                         ? 'badge-success'
                                                         : (item.product_type === 'cost_type'
                                                             ? 'badge-warning'
-                                                            : (item.product_type === 'machine_order' ? 'badge-success' : 'badge-brand')))"
+                                                            : (item.product_type === 'machine_order'
+                                                                ? 'badge-success'
+                                                                : (item.product_type === 'service_order' ? 'badge-info' : 'badge-brand'))))"
                                                 x-text="item.product_type === 'plate'
                                                     ? 'Plat'
                                                     : (item.product_type === 'component'
                                                         ? 'Component'
                                                         : (item.product_type === 'cost_type'
                                                             ? 'Biaya'
-                                                            : (item.product_type === 'machine_order' ? 'Order Mesin' : 'Cutting')))"
+                                                            : (item.product_type === 'machine_order'
+                                                                ? 'Order Mesin'
+                                                                : (item.product_type === 'service_order' ? 'Order Jasa' : 'Cutting'))))"
                                             ></span>
                                         </td>
                                         <td>
@@ -295,6 +337,13 @@
                                                     <input type="hidden" :name="`items[${index}][plate_variant_id]`" :value="item.plate_variant_id || ''">
                                                     <input type="hidden" :name="`items[${index}][cutting_price_id]`" :value="item.cutting_price_id || ''">
                                                     <input type="hidden" :name="`items[${index}][pricing_mode]`" :value="item.pricing_mode || ''">
+                                                </div>
+                                            </template>
+                                            <template x-if="invoiceType === 'service_order'">
+                                                <div>
+                                                    <input type="hidden" :name="`items[${index}][description]`" :value="[item.name, item.description].filter(Boolean).join(' - ')">
+                                                    <input type="hidden" :name="`items[${index}][unit]`" :value="item.unit || 'jasa'">
+                                                    <input type="hidden" :name="`items[${index}][source_component_id]`" :value="item.source_component_id || ''">
                                                 </div>
                                             </template>
                                         </td>
@@ -322,15 +371,15 @@
                                                 :name="`items[${index}][price]`"
                                                 x-model.number="item.price"
                                                 @input="recalculateItem(index)"
-                                                :readonly="!item.isPriceEditable || invoiceType === 'machine_order'"
+                                                :readonly="invoiceType === 'machine_order'"
                                             >
                                         </td>
                                         <td>
-                                            <input type="number" min="0" max="100" class="form-input text-right" :name="`items[${index}][discount_pct]`" x-model.number="item.discount_pct" @input="recalculateItem(index)" :readonly="invoiceType === 'machine_order'">
+                                            <input type="number" min="0" max="100" class="form-input text-right" :name="`items[${index}][discount_pct]`" x-model.number="item.discount_pct" @input="recalculateItem(index)" :readonly="invoiceType === 'machine_order' || invoiceType === 'service_order'">
                                         </td>
                                         <td class="text-right font-mono font-semibold" x-text="currency(item.subtotal)"></td>
                                         <td class="text-center">
-                                            <button type="button" x-show="invoiceType === 'sales'" @click="removeItem(index)" class="text-red-500 hover:text-red-700" style="display: none;">Hapus</button>
+                                            <button type="button" x-show="invoiceType !== 'machine_order'" @click="removeItem(index)" class="text-red-500 hover:text-red-700" style="display: none;">Hapus</button>
                                         </td>
                                     </tr>
                                 </template>
@@ -341,7 +390,9 @@
                     <div x-show="items.length === 0" class="px-6 py-16 text-center text-slate-400">
                         <span x-text="invoiceType === 'machine_order'
                             ? 'Pilih nomor order mesin terlebih dahulu untuk menampilkan item tagihan.'
-                            : 'Belum ada item. Tambahkan plat, component, biaya, atau cutting dari tombol di atas.'"></span>
+                            : (invoiceType === 'service_order'
+                                ? 'Pilih nomor order jasa terlebih dahulu untuk menampilkan item tagihan.'
+                                : 'Belum ada item. Tambahkan plat, component, biaya, atau cutting dari tombol di atas.')"></span>
                     </div>
                 </div>
 
@@ -423,6 +474,20 @@
                         </div>
                     </div>
 
+                    <div class="card overflow-hidden" x-show="invoiceType === 'service_order'" style="display: none;">
+                        <div class="card-header bg-slate-50/70 border-b border-slate-100 py-4">
+                            <h2 class="font-bold text-slate-900">Konfirmasi Tagihan</h2>
+                        </div>
+                        <div class="card-body p-6">
+                            <div class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-sm text-sky-800">
+                                <p class="font-semibold">Invoice order jasa akan dibuat dari order jasa terpilih.</p>
+                                <p class="mt-2 text-xs text-sky-700">
+                                    Jika item atau nominal perlu diubah, kembali ke langkah Transaksi sebelum invoice diterbitkan.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card overflow-hidden">
                         <div class="card-header bg-slate-50/70 border-b border-slate-100 py-4">
                             <h2 class="font-bold text-slate-900">Konfirmasi Item</h2>
@@ -462,6 +527,7 @@
                                 <span>Grand Total</span>
                                 <span class="font-mono" x-text="currency(grandTotal)"></span>
                             </div>
+                            <input type="hidden" name="grand_total" :value="grandTotal">
                             <div class="flex justify-between text-sm text-green-700" x-show="invoiceType === 'sales'" style="display: none;">
                                 <span>Pembayaran awal</span>
                                 <span class="font-mono" x-text="currency(payment.amount || 0)"></span>
@@ -644,6 +710,8 @@ function invoiceWorkflow(config) {
         machineCatalog: [],
         machineOrderCatalog: [],
         selectedMachineOrder: null,
+        serviceOrderCatalog: [],
+        selectedServiceOrder: null,
         plateCatalog: [],
         componentCatalog: [],
         costTypeCatalog: [],
@@ -671,6 +739,7 @@ function invoiceWorkflow(config) {
             this.$nextTick(() => {
                 this.registerBranchListener();
                 this.registerMachineOrderListener();
+                this.registerServiceOrderListener();
             });
 
             const initialBranchId = this.getSelectedBranchId();
@@ -686,6 +755,10 @@ function invoiceWorkflow(config) {
 
         get isMachineOrderInvoice() {
             return this.invoiceType === 'machine_order';
+        },
+
+        get isServiceOrderInvoice() {
+            return this.invoiceType === 'service_order';
         },
 
         get currentCatalog() {
@@ -809,6 +882,11 @@ function invoiceWorkflow(config) {
                 return;
             }
 
+            if (this.isServiceOrderInvoice) {
+                window.toast.error('Item order jasa ditarik dari order jasa yang dipilih.');
+                return;
+            }
+
             const branchId = this.getSelectedBranchId();
 
             if (this.isSuperAdmin && !branchId) {
@@ -851,6 +929,7 @@ function invoiceWorkflow(config) {
             this.dispatchSearchableUpdate('customer_id', this.customerCatalog);
             this.dispatchSearchableUpdate('machine_id', this.machineCatalog);
             this.dispatchSearchableUpdate('machine_order_id', this.machineOrderCatalog);
+            this.dispatchSearchableUpdate('service_order_id', this.serviceOrderCatalog);
         },
 
         clearSelectedField(name) {
@@ -865,7 +944,9 @@ function invoiceWorkflow(config) {
             this.costTypeCatalog = [];
             this.cuttingCatalog = [];
             this.machineOrderCatalog = [];
+            this.serviceOrderCatalog = [];
             this.selectedMachineOrder = null;
+            this.selectedServiceOrder = null;
             this.masterDataLoaded = false;
             this.masterDataBranchId = '';
             this.syncSearchableOptions();
@@ -881,6 +962,7 @@ function invoiceWorkflow(config) {
                 this.clearSelectedField('customer_id');
                 this.clearSelectedField('machine_id');
                 this.clearSelectedField('machine_order_id');
+                this.clearSelectedField('service_order_id');
                 return;
             }
 
@@ -890,10 +972,12 @@ function invoiceWorkflow(config) {
 
             this.items = [];
             this.selectedMachineOrder = null;
+            this.selectedServiceOrder = null;
             this.recalculateTotals();
             this.clearSelectedField('customer_id');
             this.clearSelectedField('machine_id');
             this.clearSelectedField('machine_order_id');
+            this.clearSelectedField('service_order_id');
             await this.loadMasterData(normalizedBranchId);
         },
 
@@ -940,6 +1024,7 @@ function invoiceWorkflow(config) {
                 this.costTypeCatalog = this.mapCostTypes(data.cost_types || []);
                 this.cuttingCatalog = this.mapCuttingPrices(data.cutting_prices || []);
                 this.machineOrderCatalog = this.mapMachineOrders(data.machine_orders || []);
+                this.serviceOrderCatalog = this.mapServiceOrders(data.service_orders || []);
                 this.masterDataLoaded = true;
                 this.masterDataBranchId = branchId || '';
                 this.syncSearchableOptions();
@@ -1012,6 +1097,62 @@ function invoiceWorkflow(config) {
                     grand_total: Number(order.grand_total || 0),
                     paid_total: Number(order.paid_total || 0),
                     remaining_total: Number(order.remaining_total || 0),
+                    previewItems,
+                };
+            });
+        },
+
+        mapServiceOrders(serviceOrders) {
+            return serviceOrders.map((order) => {
+                const serviceLabel = order.order_type === 'training' ? 'Pelatihan' : 'Servis';
+                const previewItems = [
+                    {
+                        product_type: 'service_order',
+                        qty: 1,
+                        minutes: 0,
+                        price: 0,
+                        base_price: 0,
+                        discount_pct: 0,
+                        subtotal: 0,
+                        unit: 'jasa',
+                        source_component_id: null,
+                        name: `${serviceLabel}: ${order.title || order.order_number || 'Order Jasa'}`,
+                        description: [order.order_number, order.category, order.location].filter(Boolean).join(' - '),
+                        isPriceEditable: true,
+                    },
+                ];
+
+                if (order.order_type === 'service') {
+                    (order.components || []).filter((component) => component.billable !== false).forEach((component) => {
+                        previewItems.push({
+                            product_type: 'service_order',
+                            qty: Number(component.qty || 1),
+                            minutes: 0,
+                            price: 0,
+                            base_price: 0,
+                            discount_pct: 0,
+                            subtotal: 0,
+                            unit: 'pcs',
+                            source_component_id: component.id,
+                            name: `Komponen: ${component.component_name || 'Komponen'}`,
+                            description: component.notes || '',
+                            isPriceEditable: true,
+                        });
+                    });
+                }
+
+                return {
+                    id: order.id,
+                    name: order.order_number || 'Order Jasa',
+                    description: [order.customer_name, serviceLabel, order.title].filter(Boolean).join(' - '),
+                    order_number: order.order_number,
+                    customer_id: order.customer_id,
+                    customer_name: order.customer_name,
+                    order_type: order.order_type,
+                    order_type_label: serviceLabel,
+                    title: order.title,
+                    status: order.status,
+                    status_label: this.formatServiceOrderStatus(order.status),
                     previewItems,
                 };
             });
@@ -1187,7 +1328,8 @@ function invoiceWorkflow(config) {
         },
 
         decorateItem(item) {
-            item.isPriceEditable = item.product_type === 'cost_type'
+            item.isPriceEditable = Boolean(item.isPriceEditable)
+                || item.product_type === 'cost_type'
                 || (item.product_type === 'cutting' && item.pricing_mode === 'per-minute');
 
             if (!item.isPriceEditable) {
@@ -1238,6 +1380,7 @@ function invoiceWorkflow(config) {
         handleInvoiceTypeChanged() {
             this.items = [];
             this.selectedMachineOrder = null;
+            this.selectedServiceOrder = null;
             this.discountPct = 0;
             this.step = 1;
 
@@ -1249,8 +1392,19 @@ function invoiceWorkflow(config) {
                 this.clearSelectedField('customer_id');
                 this.clearSelectedField('machine_id');
                 this.clearSelectedField('machine_order_id');
+                this.clearSelectedField('service_order_id');
+            } else if (this.isServiceOrderInvoice) {
+                this.payment.payment_method = 'Pay Later';
+                this.payment.amount = 0;
+                this.payment.amount_display = '';
+                this.payment.is_dp = '1';
+                this.clearSelectedField('customer_id');
+                this.clearSelectedField('machine_id');
+                this.clearSelectedField('machine_order_id');
+                this.clearSelectedField('service_order_id');
             } else {
                 this.clearSelectedField('machine_order_id');
+                this.clearSelectedField('service_order_id');
                 this.syncPaymentFields();
             }
 
@@ -1266,6 +1420,18 @@ function invoiceWorkflow(config) {
 
             machineOrderInput.addEventListener('change', (event) => {
                 this.handleMachineOrderChanged(event.target.value || '');
+            });
+        },
+
+        registerServiceOrderListener() {
+            const serviceOrderInput = document.querySelector('input[name="service_order_id"]');
+
+            if (!serviceOrderInput) {
+                return;
+            }
+
+            serviceOrderInput.addEventListener('change', (event) => {
+                this.handleServiceOrderChanged(event.target.value || '');
             });
         },
 
@@ -1285,8 +1451,33 @@ function invoiceWorkflow(config) {
             this.recalculateTotals();
         },
 
+        handleServiceOrderChanged(serviceOrderId) {
+            if (!serviceOrderId) {
+                this.selectedServiceOrder = null;
+                this.items = [];
+                this.discountPct = 0;
+                this.recalculateTotals();
+                return;
+            }
+
+            const selected = this.serviceOrderCatalog.find((order) => String(order.id) === String(serviceOrderId)) || null;
+            this.selectedServiceOrder = selected;
+            this.items = (selected?.previewItems || []).map((item) => ({ ...item }));
+            this.discountPct = 0;
+            this.recalculateTotals();
+        },
+
         syncPaymentFields() {
             if (this.isMachineOrderInvoice) {
+                this.payment.payment_method = 'Pay Later';
+                this.payment.amount = 0;
+                this.payment.amount_display = '';
+                this.payment.payment_date = '';
+                this.payment.is_dp = '1';
+                return;
+            }
+
+            if (this.isServiceOrderInvoice) {
                 this.payment.payment_method = 'Pay Later';
                 this.payment.amount = 0;
                 this.payment.amount_display = '';
@@ -1326,6 +1517,23 @@ function invoiceWorkflow(config) {
                 return;
             }
 
+            if (this.isServiceOrderInvoice) {
+                const serviceOrderInput = document.querySelector('input[name="service_order_id"]');
+
+                if (!serviceOrderInput?.value) {
+                    window.toast.error('Pilih nomor order jasa terlebih dahulu.');
+                    return;
+                }
+
+                if (this.items.length === 0) {
+                    window.toast.error('Item order jasa belum tersedia.');
+                    return;
+                }
+
+                this.step = 2;
+                return;
+            }
+
             if (this.items.length === 0) {
                 window.toast.error('Tambahkan minimal satu item sebelum lanjut.');
                 return;
@@ -1353,6 +1561,31 @@ function invoiceWorkflow(config) {
                 if (!machineOrderInput?.value) {
                     event.preventDefault();
                     window.toast.error('Pilih nomor order mesin terlebih dahulu.');
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (this.isServiceOrderInvoice) {
+                const serviceOrderInput = document.querySelector('input[name="service_order_id"]');
+
+                if (!serviceOrderInput?.value) {
+                    event.preventDefault();
+                    window.toast.error('Pilih nomor order jasa terlebih dahulu.');
+                    return false;
+                }
+
+                if (this.items.length === 0) {
+                    event.preventDefault();
+                    window.toast.error('Tambahkan minimal satu item invoice order jasa.');
+                    return false;
+                }
+
+                const invalidItem = this.items.find((item) => !String(item.description || item.name || '').trim() || !(Number(item.qty) > 0) || Number(item.price) < 0);
+                if (invalidItem) {
+                    event.preventDefault();
+                    window.toast.error('Pastikan item order jasa memiliki deskripsi, qty, dan harga yang valid.');
                     return false;
                 }
 
@@ -1432,6 +1665,20 @@ function invoiceWorkflow(config) {
                 in_shipping: 'In Shipping',
                 accepted: 'Accepted',
                 completed: 'Completed',
+                cancelled: 'Cancelled',
+            };
+
+            return labels[normalized] || String(status || '-');
+        },
+
+        formatServiceOrderStatus(status) {
+            const normalized = String(status || '').toLowerCase();
+            const labels = {
+                draft: 'Draft',
+                confirmed: 'Confirmed',
+                in_progress: 'In Progress',
+                completed: 'Completed',
+                invoiced: 'Invoiced',
                 cancelled: 'Cancelled',
             };
 

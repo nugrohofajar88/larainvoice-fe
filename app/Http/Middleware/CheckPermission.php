@@ -81,6 +81,7 @@ class CheckPermission
             'master.harga-cutting' => 'cutting-price',
             'invoice'           => 'invoice',
             'machine-order'     => 'machine-order',
+            'order-jasa'        => 'service-order',
             'pembayaran'        => 'payment',
             'produksi'          => 'production',
             'sales-list'        => 'production',

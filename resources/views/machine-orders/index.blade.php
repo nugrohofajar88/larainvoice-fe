@@ -139,14 +139,17 @@
         <button
             type="button"
             onclick="(function(){ const form = document.getElementById('filterForm'); const status = form.querySelector('select[name=&quot;status&quot;]'); status.value = ''; form.submit(); })()"
-            class="card border px-3.5 py-3 text-left transition-all {{ $selectedStatus === '' ? 'border-brand shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300' }}"
+            class="card relative overflow-hidden border px-3.5 py-2.5 text-left transition-all {{ $selectedStatus === '' ? 'border-brand bg-brand/5 shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70' }}"
         >
-            <div class="flex items-center justify-between gap-2">
-                <div>
-                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Semua</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1" data-status-count="all">{{ (int) $statusCounts->sum() }}</p>
+            <span class="absolute inset-x-0 top-0 h-0.5 {{ $selectedStatus === '' ? 'bg-brand' : 'bg-slate-100' }}"></span>
+            <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Semua</p>
+                    @if($selectedStatus === '')
+                        <span class="inline-flex items-center rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Aktif</span>
+                    @endif
                 </div>
-                <span class="badge {{ $statusBadgeStyles['all'] }}">Semua</span>
+                <p class="text-xl font-black leading-none text-slate-900" data-status-count="all">{{ (int) $statusCounts->sum() }}</p>
             </div>
         </button>
 
@@ -154,14 +157,17 @@
         <button
             type="button"
             onclick="(function(){ const form = document.getElementById('filterForm'); const status = form.querySelector('select[name=&quot;status&quot;]'); status.value = '{{ $selectedStatus === $key ? '' : $key }}'; form.submit(); })()"
-            class="card border px-3.5 py-3 text-left transition-all {{ $selectedStatus === $key ? 'border-brand shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300' }}"
+            class="card relative overflow-hidden border px-3.5 py-2.5 text-left transition-all {{ $selectedStatus === $key ? 'border-brand bg-brand/5 shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70' }}"
         >
-            <div class="flex items-center justify-between gap-2">
-                <div>
-                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{{ $label }}</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1" data-status-count="{{ $key }}">{{ (int) ($statusCounts->get($key, 0)) }}</p>
+            <span class="absolute inset-x-0 top-0 h-0.5 {{ $selectedStatus === $key ? 'bg-brand' : 'bg-slate-100' }}"></span>
+            <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{{ $label }}</p>
+                    @if($selectedStatus === $key)
+                        <span class="inline-flex items-center rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Aktif</span>
+                    @endif
                 </div>
-                <span class="badge {{ $statusBadgeStyles[$key] }}">{{ $label }}</span>
+                <p class="text-xl font-black leading-none text-slate-900" data-status-count="{{ $key }}">{{ (int) ($statusCounts->get($key, 0)) }}</p>
             </div>
         </button>
         @endforeach
@@ -404,33 +410,119 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                             <div x-show="isSuperAdmin">
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Cabang <span class="text-red-500">*</span></label>
-                                <select x-model="formData.branch_id" @change="handleBranchChanged()" class="form-input w-full" :disabled="isFieldLocked(!canEditCoreHeader)" required>
-                                    <option value="">--- Pilih Cabang ---</option>
-                                    <template x-for="branch in branches" :key="branch.id">
-                                        <option :value="String(branch.id)" x-text="branch.name"></option>
-                                    </template>
-                                </select>
+                                <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                    <button
+                                        type="button"
+                                        @click="if (isFieldLocked(!canEditCoreHeader)) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.branchSearch?.focus()); }"
+                                        class="w-full form-input flex items-center justify-between gap-3 text-left"
+                                        :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                        :disabled="isFieldLocked(!canEditCoreHeader)"
+                                    >
+                                        <span class="truncate" x-text="branchById(formData.branch_id)?.name || 'Pilih cabang'"></span>
+                                        <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                        <div class="p-3 border-b border-slate-100">
+                                            <input x-ref="branchSearch" x-model="query" type="text" class="form-input" placeholder="Cari cabang...">
+                                        </div>
+                                        <div class="max-h-64 overflow-y-auto">
+                                            <template x-for="branch in searchOptions(branches, query, ['name', 'city'])" :key="branch.id">
+                                                <button
+                                                    type="button"
+                                                    @click="formData.branch_id = String(branch.id); open = false; query = ''; handleBranchChanged();"
+                                                    class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                >
+                                                    <div class="font-medium text-slate-800" x-text="branch.name"></div>
+                                                    <div x-show="branch.city" class="text-xs text-slate-400 mt-0.5" x-text="branch.city"></div>
+                                                </button>
+                                            </template>
+                                            <div x-show="searchOptions(branches, query, ['name', 'city']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                Tidak ada cabang yang cocok.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" x-model="formData.branch_id" required>
                                 <p x-show="isSuperAdmin && !formData.branch_id" class="mt-1 text-[11px] text-amber-600">
                                     Pilih cabang terlebih dahulu agar data pelanggan, sales, mesin, dan komponen terfilter dengan benar.
                                 </p>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Pelanggan <span class="text-red-500">*</span></label>
-                                <select x-model="formData.customer_id" class="form-input w-full" :disabled="isFieldLocked(branchSelectionRequired || !canEditCoreHeader)" required>
-                                    <option value="">--- Pilih Pelanggan ---</option>
-                                    <template x-for="customer in filteredCustomers" :key="customer.id">
-                                        <option :value="String(customer.id)" x-text="customer.name"></option>
-                                    </template>
-                                </select>
+                                <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                    <button
+                                        type="button"
+                                        @click="if (isFieldLocked(branchSelectionRequired || !canEditCoreHeader)) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.customerSearch?.focus()); }"
+                                        class="w-full form-input flex items-center justify-between gap-3 text-left"
+                                        :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                        :disabled="isFieldLocked(branchSelectionRequired || !canEditCoreHeader)"
+                                    >
+                                        <span class="truncate" x-text="customerById(formData.customer_id)?.name || (masterDataLoading ? 'Sedang memuat pelanggan...' : (branchSelectionRequired ? 'Pilih cabang terlebih dahulu' : 'Pilih pelanggan'))"></span>
+                                        <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                        <div class="p-3 border-b border-slate-100">
+                                            <input x-ref="customerSearch" x-model="query" type="text" class="form-input" placeholder="Cari pelanggan...">
+                                        </div>
+                                        <div class="max-h-64 overflow-y-auto">
+                                            <template x-for="customer in searchOptions(filteredCustomers, query, ['name'])" :key="customer.id">
+                                                <button
+                                                    type="button"
+                                                    @click="formData.customer_id = String(customer.id); open = false; query = '';"
+                                                    class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                >
+                                                    <div class="font-medium text-slate-800" x-text="customer.name"></div>
+                                                </button>
+                                            </template>
+                                            <div x-show="searchOptions(filteredCustomers, query, ['name']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                Tidak ada pelanggan yang cocok.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" x-model="formData.customer_id" required>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Sales</label>
-                                <select x-model="formData.sales_id" class="form-input w-full" :disabled="isFieldLocked(branchSelectionRequired || !canEditHeader)">
-                                    <option value="">--- Tanpa Sales ---</option>
-                                    <template x-for="sale in filteredSales" :key="sale.id">
-                                        <option :value="String(sale.id)" x-text="sale.name"></option>
-                                    </template>
-                                </select>
+                                <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                    <button
+                                        type="button"
+                                        @click="if (isFieldLocked(branchSelectionRequired || !canEditHeader)) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.salesSearch?.focus()); }"
+                                        class="w-full form-input flex items-center justify-between gap-3 text-left"
+                                        :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                        :disabled="isFieldLocked(branchSelectionRequired || !canEditHeader)"
+                                    >
+                                        <span class="truncate" x-text="salesById(formData.sales_id)?.name || (masterDataLoading ? 'Sedang memuat sales...' : (branchSelectionRequired ? 'Pilih cabang terlebih dahulu' : 'Tanpa sales'))"></span>
+                                        <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                        <div class="p-3 border-b border-slate-100">
+                                            <input x-ref="salesSearch" x-model="query" type="text" class="form-input" placeholder="Cari sales...">
+                                        </div>
+                                        <div class="max-h-64 overflow-y-auto">
+                                            <button
+                                                type="button"
+                                                @click="formData.sales_id = ''; open = false; query = '';"
+                                                class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100"
+                                            >
+                                                <div class="font-medium text-slate-700">Tanpa Sales</div>
+                                            </button>
+                                            <template x-for="sale in searchOptions(filteredSales, query, ['name'])" :key="sale.id">
+                                                <button
+                                                    type="button"
+                                                    @click="formData.sales_id = String(sale.id); open = false; query = '';"
+                                                    class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                >
+                                                    <div class="font-medium text-slate-800" x-text="sale.name"></div>
+                                                </button>
+                                            </template>
+                                            <div x-show="searchOptions(filteredSales, query, ['name']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                Tidak ada sales yang cocok.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" x-model="formData.sales_id">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Status <span class="text-red-500">*</span></label>
@@ -512,6 +604,80 @@
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Catatan Internal</label>
                                 <textarea x-model="formData.internal_notes" class="form-input w-full min-h-24" placeholder="Catatan internal tim"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-800">Petugas Produksi</h4>
+                                    <p class="text-[11px] text-slate-500">Tentukan siapa saja yang ditugaskan pada order mesin ini.</p>
+                                </div>
+                                <button x-show="!detailMode && !isReadOnlyStatus" type="button" @click="addAssignmentRow()" class="btn btn-outline text-xs px-3 py-1.5 rounded-lg">Tambah Petugas</button>
+                            </div>
+
+                            <div class="space-y-2">
+                                <template x-if="formData.assignments.length === 0">
+                                    <div class="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500 text-center">
+                                        Belum ada petugas ditugaskan.
+                                    </div>
+                                </template>
+                                <template x-for="(assignment, index) in formData.assignments" :key="`assignment-${index}`">
+                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start rounded-xl border border-slate-200 bg-white p-3">
+                                        <div class="md:col-span-5">
+                                            <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                                <button
+                                                    type="button"
+                                                    @click="if (isFieldLocked(branchSelectionRequired || isReadOnlyStatus)) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.assignmentUserSearch?.focus()); }"
+                                                    class="w-full form-input flex items-center justify-between gap-3 text-left text-sm"
+                                                    :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                                    :disabled="isFieldLocked(branchSelectionRequired || isReadOnlyStatus)"
+                                                >
+                                                    <span class="truncate" x-text="userById(assignment.user_id)?.name || (masterDataLoading ? 'Sedang memuat petugas...' : (branchSelectionRequired ? 'Pilih cabang terlebih dahulu' : 'Pilih petugas'))"></span>
+                                                    <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                </button>
+                                                <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                                    <div class="p-3 border-b border-slate-100">
+                                                        <input x-ref="assignmentUserSearch" x-model="query" type="text" class="form-input" placeholder="Cari petugas...">
+                                                    </div>
+                                                    <div class="max-h-64 overflow-y-auto">
+                                                        <template x-for="user in searchOptions(filteredUsers, query, ['name', 'branch_name'])" :key="user.id">
+                                                            <button
+                                                                type="button"
+                                                                @click="assignment.user_id = String(user.id); open = false; query = '';"
+                                                                class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                            >
+                                                                <div class="font-medium text-slate-800" x-text="user.name"></div>
+                                                                <div x-show="user.branch_name" class="text-xs text-slate-400 mt-0.5" x-text="user.branch_name"></div>
+                                                            </button>
+                                                        </template>
+                                                        <div x-show="searchOptions(filteredUsers, query, ['name', 'branch_name']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                            Tidak ada petugas yang cocok.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" x-model="assignment.user_id">
+                                        </div>
+                                        <div class="md:col-span-3">
+                                            <select x-model="assignment.role" class="form-input w-full text-sm" :disabled="isFieldLocked(isReadOnlyStatus)">
+                                                <option value="">Peran</option>
+                                                <option value="lead">Lead</option>
+                                                <option value="teknisi">Teknisi</option>
+                                                <option value="assembler">Assembler</option>
+                                                <option value="helper">Helper</option>
+                                            </select>
+                                        </div>
+                                        <div class="md:col-span-3">
+                                            <input type="text" x-model="assignment.notes" class="form-input w-full text-sm" placeholder="Catatan (opsional)" :disabled="isFieldLocked(isReadOnlyStatus)">
+                                        </div>
+                                        <div class="md:col-span-1 flex justify-center md:pt-0 pt-1">
+                                            <button type="button" @click="removeAssignmentRow(index)" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all" title="Hapus petugas" :disabled="isFieldLocked(isReadOnlyStatus)" x-show="!detailMode && !isReadOnlyStatus">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
                         </div>
 
@@ -835,6 +1001,7 @@ function machineOrderPage(config) {
         masterDataBranchId: '',
         customers: config.customers || [],
         sales: config.sales || [],
+        users: config.users || [],
         machines: config.machines || [],
         components: config.components || [],
         costTypes: config.costTypes || [],
@@ -881,6 +1048,14 @@ function machineOrderPage(config) {
             return this.sales.filter(item => !item.branch_id || String(item.branch_id) === String(this.formData.branch_id));
         },
 
+        get filteredUsers() {
+            if (this.isSuperAdmin && !this.formData.branch_id) {
+                return this.users;
+            }
+
+            return this.users.filter(item => !item.branch_id || String(item.branch_id) === String(this.formData.branch_id) || item.is_super_admin);
+        },
+
         get filteredMachines() {
             if (this.isSuperAdmin && !this.formData.branch_id) {
                 return this.machines;
@@ -895,6 +1070,15 @@ function machineOrderPage(config) {
             }
 
             return this.components.filter(item => !item.branch_id || String(item.branch_id) === String(this.formData.branch_id));
+        },
+        searchOptions(items, query, fields = []) {
+            const keyword = String(query || '').toLowerCase().trim();
+
+            if (!keyword) {
+                return items || [];
+            }
+
+            return (items || []).filter((item) => fields.some((field) => String(item?.[field] || '').toLowerCase().includes(keyword)));
         },
 
         get filteredBranchComponents() {
@@ -1037,6 +1221,7 @@ function machineOrderPage(config) {
                 costs: [],
                 components: [],
                 payments: [],
+                assignments: [],
             };
         },
 
@@ -1078,6 +1263,13 @@ function machineOrderPage(config) {
                     id: item.id,
                     name: item.name || 'Sales',
                     branch_id: item.branch_id || null,
+                }));
+                this.users = (payload.users || []).map((item) => ({
+                    id: item.id,
+                    name: item.name || 'User',
+                    branch_id: item.branch_id || null,
+                    branch_name: item.branch?.name || item.branch_name || '',
+                    is_super_admin: !!item.is_super_admin,
                 }));
                 this.machines = (payload.machines || []).map((machine) => ({
                     id: machine.id,
@@ -1130,6 +1322,7 @@ function machineOrderPage(config) {
             } else {
                 this.customers = [];
                 this.sales = [];
+                this.users = [];
                 this.machines = [];
                 this.components = [];
                 this.masterDataLoaded = false;
@@ -1141,6 +1334,7 @@ function machineOrderPage(config) {
             this.formData.machine_id = '';
             this.formData.base_price = 0;
             this.formData.components = [];
+            this.formData.assignments = [];
         },
 
         attemptClose() {
@@ -1241,6 +1435,10 @@ function machineOrderPage(config) {
 
         salesById(id) {
             return this.sales.find(item => String(item.id) === String(id));
+        },
+
+        userById(id) {
+            return this.users.find(item => String(item.id) === String(id));
         },
 
         statusLabel(value) {
@@ -1973,6 +2171,26 @@ function machineOrderPage(config) {
             this.formData.payments.splice(index, 1);
         },
 
+        addAssignmentRow() {
+            if (this.isReadOnlyStatus) {
+                return;
+            }
+
+            this.formData.assignments.push({
+                user_id: '',
+                role: '',
+                notes: '',
+            });
+        },
+
+        removeAssignmentRow(index) {
+            if (this.isReadOnlyStatus) {
+                return;
+            }
+
+            this.formData.assignments.splice(index, 1);
+        },
+
         async openCreate() {
             this.editMode = false;
             this.detailMode = false;
@@ -2034,6 +2252,11 @@ function machineOrderPage(config) {
                         reference_number: item.reference_number || '',
                         notes: item.notes || '',
                     })),
+                    assignments: (data.assignments || []).map(item => ({
+                        user_id: item.user_id ? String(item.user_id) : '',
+                        role: item.role || '',
+                        notes: item.notes || '',
+                    })),
                 };
                 this.orderLogs = [...(data.logs || [])].reverse();
 
@@ -2070,6 +2293,12 @@ function machineOrderPage(config) {
             }
             if (!Number(this.formData.base_price || 0)) {
                 window.toast.error('Base price wajib diisi.');
+                return false;
+            }
+
+            const emptyAssignment = (this.formData.assignments || []).find((assignment) => !assignment.user_id);
+            if (emptyAssignment) {
+                window.toast.error('Setiap petugas yang ditambahkan wajib memilih user.');
                 return false;
             }
 
@@ -2119,6 +2348,13 @@ function machineOrderPage(config) {
                         amount: Number(item.amount || 0),
                         payment_method: item.payment_method || null,
                         reference_number: item.reference_number || null,
+                        notes: item.notes || null,
+                    })),
+                assignments: (this.formData.assignments || [])
+                    .filter(item => item.user_id)
+                    .map(item => ({
+                        user_id: Number(item.user_id),
+                        role: item.role || null,
                         notes: item.notes || null,
                     })),
             };

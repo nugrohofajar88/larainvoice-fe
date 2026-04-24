@@ -6,11 +6,85 @@ use Illuminate\Support\Facades\Route;
 
 class MenuHelper
 {
+    private static function normalizeKey(string $key): string
+    {
+        return match ($key) {
+            'order-jasa' => 'service-order',
+            default => $key,
+        };
+    }
+
+    private static function permissionKeys(string $key): array
+    {
+        $normalized = self::normalizeKey($key);
+
+        if ($normalized === 'service-order') {
+            return ['service-order', 'order-jasa'];
+        }
+
+        return [$normalized];
+    }
+
+    public static function fallbackMenus(): array
+    {
+        return [
+            ['key' => 'dashboard', 'name' => 'Dashboard'],
+            [
+                'key' => 'master-data',
+                'name' => 'Master Data',
+                'children' => [
+                    ['key' => 'branch', 'name' => 'Cabang'],
+                    ['key' => 'user', 'name' => 'Pengguna'],
+                    ['key' => 'role', 'name' => 'Role'],
+                    ['key' => 'customer', 'name' => 'Pelanggan'],
+                    ['key' => 'sales', 'name' => 'Sales'],
+                    ['key' => 'machine', 'name' => 'Mesin'],
+                    ['key' => 'product', 'name' => 'Plat'],
+                    ['key' => 'component-category', 'name' => 'Kategori Komponen'],
+                    ['key' => 'component', 'name' => 'Komponen'],
+                    ['key' => 'cost-type', 'name' => 'Tipe Biaya'],
+                    ['key' => 'cutting-price', 'name' => 'Harga Cutting'],
+                ],
+            ],
+            [
+                'key' => 'transaction',
+                'name' => 'Transaksi',
+                'children' => [
+                    ['key' => 'invoice', 'name' => 'Invoice'],
+                    ['key' => 'machine-order', 'name' => 'Order Mesin'],
+                    ['key' => 'service-order', 'name' => 'Order Jasa'],
+                    ['key' => 'payment', 'name' => 'Pembayaran'],
+                    ['key' => 'production', 'name' => 'List Penjualan'],
+                ],
+            ],
+            [
+                'key' => 'report',
+                'name' => 'Laporan',
+                'children' => [
+                    ['key' => 'report-customer-ranking', 'name' => 'Ranking Pelanggan'],
+                    ['key' => 'report-sales-kpi', 'name' => 'KPI Sales'],
+                    ['key' => 'report-invoice-recap', 'name' => 'Rekap Invoice'],
+                    ['key' => 'report-payment-recap', 'name' => 'Rekap Pembayaran'],
+                    ['key' => 'report-plate-sales-recap', 'name' => 'Rekap Penjualan Plat'],
+                    ['key' => 'report-cutting-sales-recap', 'name' => 'Rekap Penjualan Cutting'],
+                    ['key' => 'report-receivable', 'name' => 'Piutang'],
+                    ['key' => 'report-stock', 'name' => 'Stok'],
+                ],
+            ],
+            ['key' => 'machine-type', 'name' => 'Tipe Mesin'],
+            ['key' => 'plate-size', 'name' => 'Ukuran Plat'],
+            ['key' => 'plate-material', 'name' => 'Material Plat'],
+            ['key' => 'menu-setting', 'name' => 'Menu'],
+        ];
+    }
+
     /**
      * Map menu keys to SVG icons (Heroicons)
      */
     public static function getIcon(string $key): string
     {
+        $key = self::normalizeKey($key);
+
         $icons = [
             'dashboard'     => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>',
             'master-data'   => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>',
@@ -28,6 +102,7 @@ class MenuHelper
             'transaction'   => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>',
             'invoice'       => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
             'machine-order' => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-7 4h8m-9 4h10m-8 6h6a2 2 0 002-2V7a2 2 0 00-2-2H9a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>',
+            'service-order' => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z"/></svg>',
             'payment'       => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>',
             'production'    => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6h13M9 5v6h13M5 5l-3 3 3 3M5 16l-3 3 3 3"/></svg>',
             'report'        => '<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4V7m3 10H6a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2z"/></svg>',
@@ -56,6 +131,8 @@ class MenuHelper
      */
     public static function getUrl(string $key): string
     {
+        $key = self::normalizeKey($key);
+
         $routes = [
             'dashboard'     => 'dashboard',
             'branch'        => 'master.cabang.index',
@@ -69,6 +146,7 @@ class MenuHelper
             'cutting-price' => 'master.harga-cutting.index',
             'invoice'       => 'invoice.index',
             'machine-order' => 'machine-order.index',
+            'service-order' => 'order-jasa.index',
             'payment'       => 'pembayaran.index',
             'production'    => 'sales-list.index',
             'report'        => 'laporan.ranking-pelanggan',
@@ -103,6 +181,8 @@ class MenuHelper
      */
     public static function isActive(string $key): bool
     {
+        $key = self::normalizeKey($key);
+
         $routes = [
             'dashboard'     => 'dashboard',
             'branch'        => 'master.cabang.*',
@@ -116,6 +196,7 @@ class MenuHelper
             'cutting-price' => 'master.harga-cutting.*',
             'invoice'       => 'invoice.*',
             'machine-order' => 'machine-order.*',
+            'service-order' => 'order-jasa.*',
             'payment'       => 'pembayaran.*',
             'production'    => 'sales-list.*',
             'report'        => 'laporan.*',
@@ -178,9 +259,10 @@ class MenuHelper
         
         $apiAction = $actionMap[$action] ?? $action;
 
-        // The API returns an associative array: $permissions['module_key']['action']
-        if (isset($permissions[$key][$apiAction])) {
-            return $permissions[$key][$apiAction];
+        foreach (self::permissionKeys($key) as $permissionKey) {
+            if (isset($permissions[$permissionKey][$apiAction])) {
+                return $permissions[$permissionKey][$apiAction];
+            }
         }
 
         return false;

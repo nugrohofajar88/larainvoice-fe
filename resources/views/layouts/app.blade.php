@@ -42,6 +42,9 @@
 
     @php
         $allMenus = session('menus', []);
+        if (empty($allMenus)) {
+            $allMenus = \App\Helpers\MenuHelper::fallbackMenus();
+        }
         $settingKeys = ['role', 'machine-type', 'plat-size', 'plat-material', 'menu', 'menu-setting'];
         $shortLogoAsset = file_exists(public_path('images/logo-short.png'))
             ? asset('images/logo-short.png')

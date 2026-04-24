@@ -24,28 +24,25 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
         @foreach($tabMeta as $key => $meta)
             <a
                 href="{{ route('sales-list.index', array_merge(request()->except(['tab', 'page']), ['tab' => $key])) }}"
-                class="card relative p-5 border transition-all {{ $activeTab === $key ? 'border-brand bg-brand/[0.08] ring-2 ring-brand/20 shadow-lg shadow-brand/10' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80' }}"
+                class="card relative overflow-hidden border px-3.5 py-2.5 transition-all {{ $activeTab === $key ? 'border-brand bg-brand/5 shadow-lg shadow-brand/10' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70' }}"
                 aria-current="{{ $activeTab === $key ? 'page' : 'false' }}"
                 data-tab-card="{{ $key }}"
             >
-                @if($activeTab === $key)
-                    <span class="absolute inset-x-5 top-0 h-1 rounded-b-full bg-brand"></span>
-                @endif
-                <div class="flex items-center justify-between gap-3">
+                <span class="absolute inset-x-0 top-0 h-0.5 {{ $activeTab === $key ? 'bg-brand' : 'bg-slate-100' }}"></span>
+                <div class="space-y-0.5">
                     <div>
                         <div class="flex items-center gap-2">
-                            <p class="text-xs uppercase tracking-wider font-bold {{ $activeTab === $key ? 'text-brand' : 'text-slate-400' }}">{{ $meta['label'] }}</p>
+                            <p class="text-[10px] font-semibold uppercase tracking-[0.16em] {{ $activeTab === $key ? 'text-brand' : 'text-slate-400' }}">{{ $meta['label'] }}</p>
                             @if($activeTab === $key)
                                 <span class="inline-flex items-center rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Aktif</span>
                             @endif
                         </div>
-                        <p class="text-3xl font-black text-slate-900 mt-2" data-tab-count="{{ $key }}">{{ $meta['count'] }}</p>
+                        <p class="text-xl font-black leading-none text-slate-900 mt-1" data-tab-count="{{ $key }}">{{ $meta['count'] }}</p>
                     </div>
-                    <span class="badge {{ $meta['badge'] }} {{ $activeTab === $key ? 'ring-2 ring-white/70 shadow-sm' : '' }}">{{ $meta['label'] }}</span>
                 </div>
             </a>
         @endforeach
@@ -197,12 +194,12 @@
                                 <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
                             </td>
                             <td class="py-3">
-                                <div class="flex items-center justify-center gap-1.5 overflow-x-auto whitespace-nowrap py-1">
+                                <div class="flex items-center justify-end gap-1 overflow-x-auto whitespace-nowrap py-0.5">
                                     @foreach($actions as $action)
                                         @if(isset($action['href']))
                                             <a
                                                 href="{{ $action['href'] }}"
-                                                class="{{ $action['variant'] === 'primary' ? 'btn btn-primary' : ($action['variant'] === 'danger' ? 'btn btn-danger' : 'btn btn-outline') }} btn-sm px-2.5 py-1.5 text-[11px] leading-none whitespace-nowrap shrink-0"
+                                                class="{{ $action['variant'] === 'primary' ? 'btn btn-primary' : ($action['variant'] === 'danger' ? 'btn btn-danger' : 'btn btn-outline') }} btn-sm px-2 py-1 text-[10px] leading-none whitespace-nowrap shrink-0"
                                                 @if(str_contains($action['label'], 'Print')) target="_blank" @endif
                                             >
                                                 {{ $action['label'] }}
@@ -210,7 +207,7 @@
                                         @elseif(($action['modal'] ?? null) === 'invoice-detail')
                                             <button
                                                 type="button"
-                                                class="btn btn-outline btn-sm px-2.5 py-1.5 text-[11px] leading-none whitespace-nowrap shrink-0 js-invoice-detail-trigger"
+                                                class="btn btn-outline btn-sm px-2 py-1 text-[10px] leading-none whitespace-nowrap shrink-0 js-invoice-detail-trigger"
                                                 data-invoice-id="{{ $item['id'] }}"
                                                 data-detail-url="{{ route('sales-list.detail', $item['id']) }}"
                                             >
@@ -223,7 +220,7 @@
                                                 <input type="hidden" name="production_status" value="{{ $action['status'] }}">
                                                 <input type="hidden" name="notes" value="">
                                                 <input type="hidden" name="tab" value="{{ $activeTab }}">
-                                                <button type="submit" class="{{ $action['variant'] === 'primary' ? 'btn btn-primary' : 'btn btn-danger' }} btn-sm px-2.5 py-1.5 text-[11px] leading-none whitespace-nowrap js-status-submit" data-default-label="{{ $action['label'] }}">
+                                                <button type="submit" class="{{ $action['variant'] === 'primary' ? 'btn btn-primary' : 'btn btn-danger' }} btn-sm px-2 py-1 text-[10px] leading-none whitespace-nowrap js-status-submit" data-default-label="{{ $action['label'] }}">
                                                         {{ $action['label'] }}
                                                 </button>
                                             </form>

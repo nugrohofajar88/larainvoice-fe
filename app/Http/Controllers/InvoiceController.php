@@ -63,6 +63,7 @@ class InvoiceController extends Controller
             'cost_types' => [],
             'cutting_prices' => [],
             'machine_orders' => [],
+            'service_orders' => [],
         ]));
     }
 
@@ -92,6 +93,31 @@ class InvoiceController extends Controller
                 }
 
                 return redirect()->route('sales-list.index')->with('success', 'Invoice order mesin berhasil dibuat.');
+            }
+
+            if ($invoiceType === 'service_order') {
+                $serviceOrderId = $payload['service_order_id'] ?? null;
+
+                if (!$serviceOrderId) {
+                    return back()->withErrors(['Pilih nomor order jasa terlebih dahulu.'])->withInput();
+                }
+
+                $response = $this->apiClient()->post(
+                    config('services.pioneer.api_url') . "/service-orders/{$serviceOrderId}/create-invoice",
+                    $this->getApiParams([
+                        'transaction_date' => $payload['transaction_date'] ?? null,
+                        'grand_total' => $payload['grand_total'] ?? 0,
+                        'notes' => $payload['notes'] ?? null,
+                        'items' => $payload['items'] ?? [],
+                    ])
+                );
+
+                if ($response->failed()) {
+                    $error = $this->decodeApiValue($response, 'message', 'Gagal membuat invoice dari order jasa.');
+                    return back()->withErrors([$error])->withInput();
+                }
+
+                return redirect()->route('sales-list.index')->with('success', 'Invoice order jasa berhasil dibuat.');
             }
 
             if (($payload['machine_id'] ?? '') === '') {

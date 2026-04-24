@@ -6,13 +6,13 @@ use App\Helpers\AuthHelper;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class MachineOrderController extends Controller
+class ServiceOrderController extends Controller
 {
     private string $apiUrl;
 
     public function __construct()
     {
-        $this->apiUrl = config('services.pioneer.api_url') . '/machine-orders';
+        $this->apiUrl = config('services.pioneer.api_url') . '/service-orders';
     }
 
     public function index(Request $request)
@@ -22,7 +22,7 @@ class MachineOrderController extends Controller
                 ->get($this->apiUrl, $this->getApiParams($request->all()));
 
             if ($response->failed()) {
-                return back()->with('error', 'Gagal memuat data machine order.');
+                return back()->with('error', 'Gagal memuat data order jasa.');
             }
 
             $resData = $this->decodeApiJson($response, []);
@@ -37,12 +37,13 @@ class MachineOrderController extends Controller
             $params = $this->getApiParams([]);
             $summaryOrders = $this->fetchApiCollection($this->apiUrl, $params);
             $statusSummary = collect($summaryOrders)->countBy(fn ($item) => $item['status'] ?? 'draft')->all();
-            $costTypes = $this->fetchApiCollection(config('services.pioneer.api_url') . '/cost-types', $params);
+            $typeSummary = collect($summaryOrders)->countBy(fn ($item) => $item['order_type'] ?? 'service')->all();
+
             $branches = AuthHelper::isSuperAdmin()
                 ? $this->fetchApiCollection(config('services.pioneer.api_url') . '/branches', $params)
                 : [];
 
-            return view('machine-orders.index', compact('orders', 'costTypes', 'branches', 'statusSummary'));
+            return view('service-orders.index', compact('orders', 'branches', 'statusSummary', 'typeSummary'));
         } catch (\Exception $e) {
             return back()->with('error', 'Koneksi gagal: ' . $e->getMessage());
         }
@@ -55,16 +56,15 @@ class MachineOrderController extends Controller
                 'branch_id' => $request->branch_id,
             ], fn ($value) => $value !== null && $value !== ''));
 
+            $baseUrl = config('services.pioneer.api_url');
             return response()->json([
-                'customers' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/customers', $params),
-                'machines' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/machines', $params),
-                'components' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/components', $params),
-                'sales' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/sales', $params),
-                'users' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/users', $params),
+                'customers' => $this->fetchApiCollection($baseUrl . '/customers', $params),
+                'users' => $this->fetchApiCollection($baseUrl . '/users', $params),
+                'components' => $this->fetchApiCollection($baseUrl . '/components', $params),
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal memuat master data machine order.',
+                'message' => 'Gagal memuat master data order jasa.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -76,16 +76,14 @@ class MachineOrderController extends Controller
             $response = $this->apiClient()->post($this->apiUrl, $this->getApiParams($request->all()));
 
             if ($response->failed()) {
-                $error = $this->decodeApiValue($response, 'message', 'Gagal menyimpan machine order.');
-                return response()->json(['message' => $error], $response->status());
+                $error = $this->decodeApiValue($response, 'message', 'Gagal menyimpan order jasa.');
+                return response()->json(['message' => $error, 'errors' => $this->decodeApiValue($response, 'errors', [])], $response->status());
             }
 
             return response()->json([
-                'message' => 'Machine order berhasil disimpan.',
+                'message' => 'Order jasa berhasil disimpan.',
                 'data' => $this->decodeApiValue($response, 'data', []),
             ]);
-        } catch (\Illuminate\Validation\ValidationException $v) {
-            return response()->json(['message' => 'Validasi gagal.', 'errors' => $v->errors()], 422);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
         }
@@ -97,16 +95,14 @@ class MachineOrderController extends Controller
             $response = $this->apiClient()->put("{$this->apiUrl}/{$id}", $this->getApiParams($request->all()));
 
             if ($response->failed()) {
-                $error = $this->decodeApiValue($response, 'message', 'Gagal memperbarui machine order.');
-                return response()->json(['message' => $error], $response->status());
+                $error = $this->decodeApiValue($response, 'message', 'Gagal memperbarui order jasa.');
+                return response()->json(['message' => $error, 'errors' => $this->decodeApiValue($response, 'errors', [])], $response->status());
             }
 
             return response()->json([
-                'message' => 'Machine order berhasil diperbarui.',
+                'message' => 'Order jasa berhasil diperbarui.',
                 'data' => $this->decodeApiValue($response, 'data', []),
             ]);
-        } catch (\Illuminate\Validation\ValidationException $v) {
-            return response()->json(['message' => 'Validasi gagal.', 'errors' => $v->errors()], 422);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
         }
@@ -118,16 +114,14 @@ class MachineOrderController extends Controller
             $response = $this->apiClient()->patch("{$this->apiUrl}/{$id}/status", $this->getApiParams($request->all()));
 
             if ($response->failed()) {
-                $error = $this->decodeApiValue($response, 'message', 'Gagal memperbarui status machine order.');
+                $error = $this->decodeApiValue($response, 'message', 'Gagal memperbarui status order jasa.');
                 return response()->json(['message' => $error], $response->status());
             }
 
             return response()->json([
-                'message' => $this->decodeApiValue($response, 'message', 'Status machine order berhasil diperbarui.'),
+                'message' => $this->decodeApiValue($response, 'message', 'Status berhasil diperbarui.'),
                 'data' => $this->decodeApiValue($response, 'data', []),
             ]);
-        } catch (\Illuminate\Validation\ValidationException $v) {
-            return response()->json(['message' => 'Validasi gagal.', 'errors' => $v->errors()], 422);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
         }
@@ -139,11 +133,11 @@ class MachineOrderController extends Controller
             $response = $this->apiClient()->delete("{$this->apiUrl}/{$id}");
 
             if ($response->failed()) {
-                $error = $this->decodeApiValue($response, 'message', 'Gagal menghapus machine order.');
+                $error = $this->decodeApiValue($response, 'message', 'Gagal menghapus order jasa.');
                 return response()->json(['message' => $error], $response->status());
             }
 
-            return response()->json(['message' => 'Machine order berhasil dihapus.']);
+            return response()->json(['message' => 'Order jasa berhasil dihapus.']);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
         }
@@ -155,11 +149,30 @@ class MachineOrderController extends Controller
             $response = $this->apiClient()->get("{$this->apiUrl}/{$id}");
 
             if ($response->failed()) {
-                $error = $this->decodeApiValue($response, 'message', 'Gagal memuat detail machine order.');
+                $error = $this->decodeApiValue($response, 'message', 'Gagal memuat detail order jasa.');
                 return response()->json(['message' => $error], $response->status());
             }
 
             return response()->json($this->decodeApiJson($response, []));
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function createInvoice(Request $request, $id)
+    {
+        try {
+            $response = $this->apiClient()->post("{$this->apiUrl}/{$id}/create-invoice", $this->getApiParams($request->all()));
+
+            if ($response->failed()) {
+                $error = $this->decodeApiValue($response, 'message', 'Gagal membuat invoice dari order jasa.');
+                return response()->json(['message' => $error, 'errors' => $this->decodeApiValue($response, 'errors', [])], $response->status());
+            }
+
+            return response()->json([
+                'message' => 'Invoice berhasil dibuat dari order jasa.',
+                'data' => $this->decodeApiValue($response, 'data', []),
+            ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
         }

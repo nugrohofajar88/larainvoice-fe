@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MachineOrderController;
+use App\Http\Controllers\ServiceOrderController;
 use App\Http\Controllers\Master\BranchController;
 use App\Http\Controllers\Master\UserController;
 use App\Http\Controllers\Master\RoleController;
@@ -126,6 +127,17 @@ Route::middleware(['auth.check', 'permission'])->group(function () {
         Route::put('/{id}', [MachineOrderController::class, 'update'])->name('update');
         Route::patch('/{id}/status', [MachineOrderController::class, 'updateStatus'])->name('update-status');
         Route::delete('/{id}', [MachineOrderController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('transaksi/order-jasa')->name('order-jasa.')->group(function () {
+        Route::get('/', [ServiceOrderController::class, 'index'])->name('index');
+        Route::get('/master-data', [ServiceOrderController::class, 'masterData'])->name('master-data');
+        Route::get('/{id}', [ServiceOrderController::class, 'show'])->name('show');
+        Route::post('/', [ServiceOrderController::class, 'store'])->name('store');
+        Route::put('/{id}', [ServiceOrderController::class, 'update'])->name('update');
+        Route::patch('/{id}/status', [ServiceOrderController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{id}/create-invoice', [ServiceOrderController::class, 'createInvoice'])->name('create-invoice');
+        Route::delete('/{id}', [ServiceOrderController::class, 'destroy'])->name('destroy');
     });
 
     // ── Produksi ─────────────────────────────────────────────
