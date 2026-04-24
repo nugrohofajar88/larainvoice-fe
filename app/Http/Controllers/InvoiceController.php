@@ -84,6 +84,10 @@ class InvoiceController extends Controller
                     config('services.pioneer.api_url') . "/machine-orders/{$machineOrderId}/create-invoice",
                     $this->getApiParams([
                         'transaction_date' => $payload['transaction_date'] ?? null,
+                        'discount_pct' => $payload['discount_pct'] ?? 0,
+                        'grand_total' => $payload['grand_total'] ?? 0,
+                        'notes' => $payload['notes'] ?? null,
+                        'items' => $payload['items'] ?? [],
                     ])
                 );
 
@@ -106,6 +110,7 @@ class InvoiceController extends Controller
                     config('services.pioneer.api_url') . "/service-orders/{$serviceOrderId}/create-invoice",
                     $this->getApiParams([
                         'transaction_date' => $payload['transaction_date'] ?? null,
+                        'discount_pct' => $payload['discount_pct'] ?? 0,
                         'grand_total' => $payload['grand_total'] ?? 0,
                         'notes' => $payload['notes'] ?? null,
                         'items' => $payload['items'] ?? [],
