@@ -60,6 +60,7 @@ class MachineOrderController extends Controller
                 'machines' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/machines', $params),
                 'components' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/components', $params),
                 'sales' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/sales', $params),
+                'users' => $this->fetchApiCollection(config('services.pioneer.api_url') . '/users', $params),
             ]);
         } catch (\Exception $e) {
             return response()->json([

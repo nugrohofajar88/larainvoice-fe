@@ -38,6 +38,7 @@
         'invoiced' => 'Invoiced',
         'cancelled' => 'Cancelled',
     ];
+    $editableStatusLabels = collect($statusLabels)->except(['invoiced'])->all();
 
     $statusBadgeStyles = [
         'draft' => 'badge-neutral',
@@ -69,6 +70,10 @@
         branches: {{ \Illuminate\Support\Js::from($branchOptions) }},
         isSuperAdmin: {{ $isSuperAdmin ? 'true' : 'false' }},
         defaultBranchId: {{ \Illuminate\Support\Js::from($defaultBranchId) }},
+        canCreate: {{ \App\Helpers\MenuHelper::hasPermission('service-order', 'create') ? 'true' : 'false' }},
+        canEdit: {{ \App\Helpers\MenuHelper::hasPermission('service-order', 'edit') ? 'true' : 'false' }},
+        canDelete: {{ \App\Helpers\MenuHelper::hasPermission('service-order', 'delete') ? 'true' : 'false' }},
+        canDetail: {{ \App\Helpers\MenuHelper::hasPermission('service-order', 'detail') ? 'true' : 'false' }},
     })"
     x-init="init()"
     x-cloak
@@ -81,19 +86,17 @@
 
         @if(\App\Helpers\MenuHelper::hasPermission('service-order', 'create'))
         <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-            <button @click="open = !open" class="btn btn-primary px-5 shadow-lg shadow-brand/20">
+            <button type="button" @click="open = !open" class="btn btn-primary px-5 shadow-lg shadow-brand/20">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 <span>Buat Order Jasa</span>
                 <svg class="w-3 h-3 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div x-show="open" x-transition class="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-20" style="display:none">
-                <button type="button" @click="openCreate('service'); open = false" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 rounded-t-lg text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <span class="badge badge-info">Servis</span>
-                    Order Servis
+            <div x-show="open" x-transition class="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-20" style="display:none">
+                <button type="button" onclick="window.openServiceOrderModal && window.openServiceOrderModal('service'); return false;" @click="open = false" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 rounded-t-lg text-sm font-medium text-slate-700">
+                    Servis
                 </button>
-                <button type="button" @click="openCreate('training'); open = false" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 rounded-b-lg text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <span class="badge badge-warning">Pelatihan</span>
-                    Order Pelatihan
+                <button type="button" onclick="window.openServiceOrderModal && window.openServiceOrderModal('training'); return false;" @click="open = false" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 rounded-b-lg text-sm font-medium text-slate-700">
+                    Pelatihan
                 </button>
             </div>
         </div>
@@ -101,23 +104,29 @@
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-5">
-        <button type="button" onclick="setFilter('status','')" class="card border px-3.5 py-3 text-left transition-all {{ $selectedStatus === '' ? 'border-brand shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300' }}">
-            <div class="flex items-center justify-between gap-2">
-                <div>
-                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Semua</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1">{{ (int) $statusCounts->sum() }}</p>
+        <button type="button" onclick="setFilter('status','')" class="card relative overflow-hidden border px-3.5 py-2.5 text-left transition-all {{ $selectedStatus === '' ? 'border-brand bg-brand/5 shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70' }}">
+            <span class="absolute inset-x-0 top-0 h-0.5 {{ $selectedStatus === '' ? 'bg-brand' : 'bg-slate-100' }}"></span>
+            <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Semua</p>
+                    @if($selectedStatus === '')
+                        <span class="inline-flex items-center rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Aktif</span>
+                    @endif
                 </div>
-                <span class="badge badge-neutral">Semua</span>
+                <p class="text-xl font-black leading-none text-slate-900">{{ (int) $statusCounts->sum() }}</p>
             </div>
         </button>
         @foreach($statusLabels as $key => $label)
-        <button type="button" onclick="setFilter('status','{{ $selectedStatus === $key ? '' : $key }}')" class="card border px-3.5 py-3 text-left transition-all {{ $selectedStatus === $key ? 'border-brand shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300' }}">
-            <div class="flex items-center justify-between gap-2">
-                <div>
-                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{{ $label }}</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1">{{ (int) ($statusCounts->get($key, 0)) }}</p>
+        <button type="button" onclick="setFilter('status','{{ $selectedStatus === $key ? '' : $key }}')" class="card relative overflow-hidden border px-3.5 py-2.5 text-left transition-all {{ $selectedStatus === $key ? 'border-brand bg-brand/5 shadow-lg shadow-brand/10' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70' }}">
+            <span class="absolute inset-x-0 top-0 h-0.5 {{ $selectedStatus === $key ? 'bg-brand' : 'bg-slate-100' }}"></span>
+            <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{{ $label }}</p>
+                    @if($selectedStatus === $key)
+                        <span class="inline-flex items-center rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Aktif</span>
+                    @endif
                 </div>
-                <span class="badge {{ $statusBadgeStyles[$key] }}">{{ $label }}</span>
+                <p class="text-xl font-black leading-none text-slate-900">{{ (int) ($statusCounts->get($key, 0)) }}</p>
             </div>
         </button>
         @endforeach
@@ -147,7 +156,6 @@
                                     <span>TANGGAL</span>{!! $sortIcon('order_date') !!}
                                 </a>
                             </th>
-                            <th class="text-center">PETUGAS</th>
                             <th>STATUS</th>
                             <th class="w-24 text-center">AKSI</th>
                         </tr>
@@ -170,7 +178,6 @@
                             <th class="py-2 px-4 shadow-inner"></th>
                             <th class="py-2 px-4 shadow-inner"></th>
                             <th class="py-2 px-4 shadow-inner"></th>
-                            <th class="py-2 px-4 shadow-inner"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -186,19 +193,24 @@
                             <td>{{ $order['customer'] ?? '-' }}</td>
                             <td class="max-w-xs truncate" title="{{ $order['title'] ?? '' }}">{{ $order['title'] ?? '-' }}</td>
                             <td class="text-slate-600 text-sm">{{ $order['order_date'] ?? '-' }}</td>
-                            <td class="text-center">
-                                @if(($order['assigned_count'] ?? 0) > 0)
-                                    <span class="inline-flex items-center gap-1 text-xs text-slate-600"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>{{ $order['assigned_count'] }}</span>
-                                @else
-                                    <span class="text-xs text-slate-400">-</span>
-                                @endif
-                            </td>
                             <td>
-                                <span class="badge {{ $statusBadgeStyles[$order['status']] ?? 'badge-neutral' }}">
-                                    {{ $statusLabels[$order['status']] ?? ($order['status'] ?? '-') }}
-                                </span>
+                                @if(\App\Helpers\MenuHelper::hasPermission('service-order', 'edit'))
+                                    <select
+                                        class="w-full min-w-[10rem] text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-2 focus:ring-1 focus:ring-brand outline-none transition-all"
+                                        @change="changeListStatus({{ $order['id'] }}, '{{ $order['status'] ?? 'draft' }}', $event)"
+                                        {{ in_array($order['status'] ?? 'draft', ['invoiced', 'cancelled'], true) ? 'disabled' : '' }}
+                                    >
+                                        @foreach($editableStatusLabels as $key => $label)
+                                            <option value="{{ $key }}" {{ ($order['status'] ?? '') === $key ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <span class="badge {{ $statusBadgeStyles[$order['status']] ?? 'badge-neutral' }}">
+                                        {{ $statusLabels[$order['status']] ?? ($order['status'] ?? '-') }}
+                                    </span>
+                                @endif
                                 @if(!empty($order['has_invoice']))
-                                    <span class="block text-[10px] text-green-600 mt-0.5">✓ Invoice</span>
+                                    <span class="block text-[10px] text-green-600 mt-0.5">Invoice</span>
                                 @endif
                             </td>
                             <td>
@@ -223,7 +235,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-10 text-slate-400">Belum ada data order jasa.</td>
+                            <td colspan="8" class="text-center py-10 text-slate-400">Belum ada data order jasa.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -236,6 +248,29 @@
             {{ $orders->withQueryString()->links() }}
         </div>
         @endif
+    </div>
+
+    <div
+        x-show="fetchingOrder"
+        class="fixed inset-0 z-[70] flex items-center justify-center px-4"
+        style="display: none;"
+        x-transition.opacity
+    >
+        <div class="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"></div>
+        <div class="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white px-6 py-6 shadow-2xl">
+            <div class="flex items-center gap-4">
+                <div class="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
+                    <svg class="h-7 w-7 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                        <path class="opacity-90" d="M22 12a10 10 0 00-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900" x-text="fetchingMode === 'detail' ? 'Membuka detail order jasa' : 'Membuka form edit order jasa'"></h3>
+                    <p class="mt-1 text-sm text-slate-500">Data sedang diambil dari backend. Mohon tunggu sebentar.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- ==== Modal Create/Edit/Detail ==== --}}
@@ -258,18 +293,115 @@
                     </template>
 
                     <form x-show="!loading" @submit.prevent="save()" x-ref="serviceOrderForm">
-                        {{-- Branch (super admin only) --}}
-                        <template x-if="isSuperAdmin && !detailMode">
-                            <div class="mb-4">
-                                <label class="form-label">Cabang <span class="text-red-500">*</span></label>
-                                <select x-model="formData.branch_id" :disabled="editMode" class="form-input" required>
-                                    <option value="">Pilih cabang</option>
-                                    <template x-for="b in branches" :key="b.id">
-                                        <option :value="b.id" x-text="b.name"></option>
-                                    </template>
-                                </select>
+
+                        <div x-show="masterLoading" class="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-700" style="display: none;">
+                            <div class="flex items-start gap-3">
+                                <svg class="mt-0.5 h-5 w-5 shrink-0 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                </svg>
+                                <div>
+                                    <p class="font-semibold">Sedang mengambil data master</p>
+                                    <p class="mt-1 text-xs text-blue-600">Pelanggan, petugas, dan komponen sedang dimuat. Silakan tunggu sebentar.</p>
+                                </div>
                             </div>
-                        </template>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <template x-if="isSuperAdmin && !detailMode">
+                                <div>
+                                    <label class="form-label">Cabang <span class="text-red-500">*</span></label>
+                                    <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                        <button
+                                            type="button"
+                                            @click="if (editMode) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.branchSearch?.focus()); }"
+                                            class="w-full form-input flex items-center justify-between gap-3 text-left"
+                                            :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                            :disabled="editMode"
+                                        >
+                                            <span class="truncate" x-text="branchById(formData.branch_id)?.name || 'Pilih cabang'"></span>
+                                            <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+                                        <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                            <div class="p-3 border-b border-slate-100">
+                                                <input x-ref="branchSearch" x-model="query" type="text" class="form-input" placeholder="Cari cabang...">
+                                            </div>
+                                            <div class="max-h-64 overflow-y-auto">
+                                                <template x-for="branch in searchOptions(branches, query, ['name'])" :key="branch.id">
+                                                    <button
+                                                        type="button"
+                                                        @click="formData.branch_id = String(branch.id); open = false; query = ''; handleBranchChange();"
+                                                        class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                    >
+                                                        <div class="font-medium text-slate-800" x-text="branch.name"></div>
+                                                    </button>
+                                                </template>
+                                                <div x-show="searchOptions(branches, query, ['name']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                    Tidak ada cabang yang cocok.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <div :class="!isSuperAdmin || detailMode ? 'md:col-span-2' : ''">
+                                <label class="form-label">Status <span class="text-red-500">*</span></label>
+                                <template x-if="detailMode">
+                                    <div class="form-input bg-slate-50 text-slate-700 font-semibold">
+                                        <span x-text="statusLabel(detailData.status || formData.status)"></span>
+                                    </div>
+                                </template>
+                                <template x-if="!detailMode">
+                                    <select x-model="formData.status" class="form-input" :disabled="detailMode || !canEditStatusField()">
+                                        <template x-for="status in formStatusOptions()" :key="status.value">
+                                            <option :value="status.value" x-text="status.label"></option>
+                                        </template>
+                                    </select>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="form-label">Pelanggan <span class="text-red-500">*</span></label>
+                                <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                    <button
+                                        type="button"
+                                        @click="if (detailMode || (isSuperAdmin && !formData.branch_id)) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.customerSearch?.focus()); }"
+                                        class="w-full form-input flex items-center justify-between gap-3 text-left"
+                                        :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                        :disabled="detailMode || (isSuperAdmin && !formData.branch_id)"
+                                    >
+                                        <span class="truncate" x-text="customerById(formData.customer_id)?.full_name || (masterLoading ? 'Sedang memuat pelanggan...' : (isSuperAdmin && !formData.branch_id ? 'Pilih cabang terlebih dahulu' : 'Pilih pelanggan'))"></span>
+                                        <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                        <div class="p-3 border-b border-slate-100">
+                                            <input x-ref="customerSearch" x-model="query" type="text" class="form-input" placeholder="Cari pelanggan...">
+                                        </div>
+                                        <div class="max-h-64 overflow-y-auto">
+                                            <template x-for="customer in searchOptions(filteredCustomers(), query, ['full_name'])" :key="customer.id">
+                                                <button
+                                                    type="button"
+                                                    @click="formData.customer_id = String(customer.id); open = false; query = '';"
+                                                    class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                >
+                                                    <div class="font-medium text-slate-800" x-text="customer.full_name"></div>
+                                                </button>
+                                            </template>
+                                            <div x-show="searchOptions(filteredCustomers(), query, ['full_name']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                Tidak ada pelanggan yang cocok.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" x-model="formData.customer_id" required>
+                            </div>
+                            <div>
+                                <label class="form-label">Tanggal Order <span class="text-red-500">*</span></label>
+                                <input type="date" x-model="formData.order_date" :disabled="detailMode" class="form-input" required>
+                            </div>
+                        </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
@@ -279,58 +411,58 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="form-label">Tanggal Order <span class="text-red-500">*</span></label>
-                                <input type="date" x-model="formData.order_date" :disabled="detailMode" class="form-input" required>
-                            </div>
-                        </div>
-
-                        {{-- Customer --}}
-                        <div class="mb-4">
-                            <label class="form-label">Pelanggan <span class="text-red-500">*</span></label>
-                            <select x-model="formData.customer_id" :disabled="detailMode" class="form-input" required>
-                                <option value="">Pilih pelanggan</option>
-                                <template x-for="c in filteredCustomers()" :key="c.id">
-                                    <option :value="c.id" x-text="c.full_name"></option>
-                                </template>
-                            </select>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label">
-                                <span x-text="formData.order_type === 'training' ? 'Nama Pelatihan' : 'Judul Pekerjaan / Nama Servis'"></span>
-                                <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" x-model="formData.title" :disabled="detailMode" class="form-input" required maxlength="255">
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
                                 <label class="form-label">
-                                    <span x-text="formData.order_type === 'training' ? 'Kategori Pelatihan' : 'Jenis Servis'"></span>
+                                    <span x-text="formData.order_type === 'training' ? 'Nama Pelatihan' : 'Judul Pekerjaan / Nama Servis'"></span>
+                                    <span class="text-red-500">*</span>
                                 </label>
-                                <input type="text" x-model="formData.category" :disabled="detailMode" class="form-input" maxlength="255">
-                            </div>
-                            <div>
-                                <label class="form-label">
-                                    <span x-text="formData.order_type === 'training' ? 'Tempat Pelatihan' : 'Lokasi Pengerjaan'"></span>
-                                </label>
-                                <input type="text" x-model="formData.location" :disabled="detailMode" class="form-input" maxlength="255">
+                                <input type="text" x-model="formData.title" :disabled="detailMode" class="form-input" required maxlength="255">
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <template x-if="formData.order_type === 'training'">
                             <div>
-                                <label class="form-label">
-                                    <span x-text="formData.order_type === 'training' ? 'Tanggal Mulai Pelatihan' : 'Tanggal Rencana Pengerjaan'"></span>
-                                </label>
-                                <input type="date" x-model="formData.planned_start_date" :disabled="detailMode" class="form-input">
-                            </div>
-                            <template x-if="formData.order_type === 'training'">
-                                <div>
-                                    <label class="form-label">Durasi (hari)</label>
-                                    <input type="number" min="1" x-model.number="formData.duration_days" :disabled="detailMode" class="form-input">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="form-label">Kategori Pelatihan</label>
+                                        <input type="text" x-model="formData.category" :disabled="detailMode" class="form-input" maxlength="255">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Tempat Pelatihan</label>
+                                        <input type="text" x-model="formData.location" :disabled="detailMode" class="form-input" maxlength="255">
+                                    </div>
                                 </div>
-                            </template>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="form-label">Tanggal Mulai</label>
+                                        <input type="date" x-model="formData.planned_start_date" :disabled="detailMode" class="form-input">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Durasi (hari)</label>
+                                        <input type="number" min="1" x-model.number="formData.duration_days" :disabled="detailMode" class="form-input">
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="formData.order_type !== 'training'">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label class="form-label">Jenis Servis</label>
+                                    <input type="text" x-model="formData.category" :disabled="detailMode" class="form-input" maxlength="255">
+                                </div>
+                                <div>
+                                    <label class="form-label">Lokasi Pengerjaan</label>
+                                    <input type="text" x-model="formData.location" :disabled="detailMode" class="form-input" maxlength="255">
+                                </div>
+                                <div>
+                                    <label class="form-label">Tanggal Rencana Pengerjaan</label>
+                                    <input type="date" x-model="formData.planned_start_date" :disabled="detailMode" class="form-input">
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4" x-show="detailMode || formData.actual_finish_date">
                             <div x-show="detailMode || formData.actual_finish_date">
                                 <label class="form-label">Tanggal Selesai Aktual</label>
                                 <input type="date" x-model="formData.actual_finish_date" :disabled="detailMode" class="form-input">
@@ -354,16 +486,43 @@
                                 <p class="text-xs text-slate-400 italic">Belum ada petugas ditugaskan.</p>
                             </template>
                             <template x-for="(a, idx) in formData.assignments" :key="idx">
-                                <div class="grid grid-cols-12 gap-2 mb-2 items-start">
-                                    <div class="col-span-5">
-                                        <select x-model="a.user_id" :disabled="detailMode" class="form-input text-sm" required>
-                                            <option value="">Pilih user</option>
-                                            <template x-for="u in filteredUsers()" :key="u.id">
-                                                <option :value="u.id" x-text="u.name + (u.branch_name ? ' (' + u.branch_name + ')' : '')"></option>
-                                            </template>
-                                        </select>
+                                <div class="grid grid-cols-12 gap-2 mb-2 items-start rounded-xl border border-slate-200 p-3 bg-white">
+                                    <div class="col-span-12 md:col-span-5">
+                                        <div class="relative" x-data="{ open: false, query: '' }" @click.outside="open = false">
+                                            <button
+                                                type="button"
+                                                @click="if (detailMode || (isSuperAdmin && !formData.branch_id)) return; open = !open; if (open) { query = ''; $nextTick(() => $refs.userSearch?.focus()); }"
+                                                class="w-full form-input flex items-center justify-between gap-3 text-left text-sm"
+                                                :class="open ? 'border-brand ring-1 ring-brand' : ''"
+                                                :disabled="detailMode || (isSuperAdmin && !formData.branch_id)"
+                                            >
+                                                <span class="truncate" x-text="userById(a.user_id)?.name || (masterLoading ? 'Sedang memuat petugas...' : (isSuperAdmin && !formData.branch_id ? 'Pilih cabang terlebih dahulu' : 'Pilih user'))"></span>
+                                                <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                            </button>
+                                            <div x-show="open" x-transition class="absolute z-40 mt-2 w-full rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden" style="display:none;">
+                                                <div class="p-3 border-b border-slate-100">
+                                                    <input x-ref="userSearch" x-model="query" type="text" class="form-input" placeholder="Cari petugas...">
+                                                </div>
+                                                <div class="max-h-64 overflow-y-auto">
+                                                    <template x-for="user in searchOptions(filteredUsers(), query, ['name', 'branch_name'])" :key="user.id">
+                                                        <button
+                                                            type="button"
+                                                            @click="a.user_id = String(user.id); open = false; query = '';"
+                                                            class="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                                        >
+                                                            <div class="font-medium text-slate-800" x-text="user.name"></div>
+                                                            <div x-show="user.branch_name" class="text-xs text-slate-400 mt-0.5" x-text="user.branch_name"></div>
+                                                        </button>
+                                                    </template>
+                                                    <div x-show="searchOptions(filteredUsers(), query, ['name', 'branch_name']).length === 0" class="px-4 py-6 text-sm text-slate-400 text-center">
+                                                        Tidak ada petugas yang cocok.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" x-model="a.user_id" required>
                                     </div>
-                                    <div class="col-span-3">
+                                    <div class="col-span-12 md:col-span-3">
                                         <select x-model="a.role" :disabled="detailMode" class="form-input text-sm">
                                             <option value="">Peran</option>
                                             <option value="lead">Lead</option>
@@ -372,12 +531,12 @@
                                             <option value="helper">Helper</option>
                                         </select>
                                     </div>
-                                    <div class="col-span-3">
+                                    <div class="col-span-12 md:col-span-3">
                                         <input type="text" x-model="a.notes" :disabled="detailMode" placeholder="Catatan (opsional)" class="form-input text-sm">
                                     </div>
-                                    <div class="col-span-1">
-                                        <button type="button" x-show="!detailMode" @click="removeAssignment(idx)" class="p-2 rounded text-red-500 hover:bg-red-50" title="Hapus">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    <div class="col-span-12 md:col-span-1 flex md:justify-center">
+                                        <button type="button" x-show="!detailMode" @click="removeAssignment(idx)" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all" title="Hapus petugas">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                         </button>
                                     </div>
                                 </div>
@@ -398,30 +557,27 @@
                                     <p class="text-xs text-slate-400 italic">Belum ada komponen tercatat.</p>
                                 </template>
                                 <template x-for="(c, idx) in formData.components" :key="idx">
-                                    <div class="grid grid-cols-12 gap-2 mb-2 items-start">
-                                        <div class="col-span-5">
+                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start rounded-xl border border-slate-200 p-3 bg-white">
+                                        <div class="md:col-span-5">
+                                            <label class="block md:hidden text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Komponen</label>
                                             <select x-model="c.component_id" @change="onComponentChange(idx)" :disabled="detailMode" class="form-input text-sm">
                                                 <option value="">Pilih komponen</option>
                                                 <template x-for="comp in filteredComponents()" :key="comp.id">
-                                                    <option :value="comp.id" x-text="comp.name + (comp.type_size ? ' - ' + comp.type_size : '')"></option>
+                                                    <option :value="comp.id" x-text="comp.label || (comp.name + (comp.type_size ? ' - ' + comp.type_size : ''))"></option>
                                                 </template>
                                             </select>
                                         </div>
-                                        <div class="col-span-2">
-                                            <input type="number" min="1" x-model.number="c.qty" :disabled="detailMode" placeholder="Qty" class="form-input text-sm">
+                                        <div class="md:col-span-2">
+                                            <label class="block md:hidden text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Qty</label>
+                                            <input type="number" min="1" x-model.number="c.qty" :disabled="detailMode" placeholder="Qty" class="form-input w-full h-10 text-center text-sm">
                                         </div>
-                                        <div class="col-span-2">
-                                            <label class="flex items-center gap-2 text-xs mt-2">
-                                                <input type="checkbox" x-model="c.billable" :disabled="detailMode">
-                                                <span>Billable</span>
-                                            </label>
-                                        </div>
-                                        <div class="col-span-2">
+                                        <div class="md:col-span-4">
+                                            <label class="block md:hidden text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Catatan</label>
                                             <input type="text" x-model="c.notes" :disabled="detailMode" placeholder="Catatan" class="form-input text-sm">
                                         </div>
-                                        <div class="col-span-1">
-                                            <button type="button" x-show="!detailMode" @click="removeComponent(idx)" class="p-2 rounded text-red-500 hover:bg-red-50" title="Hapus">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        <div class="md:col-span-1 flex md:justify-center md:pt-0 pt-1">
+                                            <button type="button" x-show="!detailMode" @click="removeComponent(idx)" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all" title="Hapus komponen">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
                                         </div>
                                     </div>
@@ -455,13 +611,6 @@
                                         <label class="form-label">Status Saat Ini</label>
                                         <div class="flex items-center gap-2">
                                             <span class="badge" :class="statusBadgeClass(detailData.status)" x-text="statusLabel(detailData.status)"></span>
-                                            <div class="flex gap-1" x-show="!detailData.invoice">
-                                                <template x-for="opt in availableStatusTransitions()" :key="opt.value">
-                                                    <button type="button" @click="changeStatus(opt.value)" class="text-[10px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-100">
-                                                        → <span x-text="opt.label"></span>
-                                                    </button>
-                                                </template>
-                                            </div>
                                         </div>
                                     </div>
                                     <div>
@@ -497,7 +646,7 @@
                                                 </div>
                                                 <div class="text-xs text-slate-500 mt-0.5">
                                                     <template x-if="log.from_status_label">
-                                                        <span><span x-text="log.from_status_label"></span> → </span>
+                                                        <span><span x-text="log.from_status_label"></span> -> </span>
                                                     </template>
                                                     <span x-text="log.to_status_label"></span>
                                                     <template x-if="log.handled_by"><span class="ml-1">oleh <span x-text="log.handled_by"></span></span></template>
@@ -565,8 +714,8 @@
                                     <input type="number" step="0.01" min="0" x-model.number="it.price" placeholder="Harga" class="form-input text-sm" required>
                                 </div>
                                 <div class="col-span-1">
-                                    <button type="button" @click="removeInvoiceItem(idx)" class="p-2 rounded text-red-500 hover:bg-red-50" title="Hapus">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    <button type="button" @click="removeInvoiceItem(idx)" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all" title="Hapus item">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </div>
                             </div>
@@ -576,7 +725,7 @@
                     <div class="mb-4">
                         <label class="form-label">Grand Total <span class="text-red-500">*</span></label>
                         <input type="number" step="0.01" min="0" x-model.number="invoiceData.grand_total" class="form-input" required>
-                        <p class="text-[11px] text-slate-500 mt-1">Total item: Rp <span x-text="formatMoney(itemsTotal())"></span> — kamu boleh override (diskon/markup diterapkan sebagai selisih).</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Total item: Rp <span x-text="formatMoney(itemsTotal())"></span> - kamu boleh override (diskon/markup diterapkan sebagai selisih).</p>
                     </div>
 
                     <div class="mb-4">
@@ -614,6 +763,7 @@ function setFilter(name, value) {
 
 function serviceOrderPage(opts) {
     const STATUS_FLOW = ['draft', 'confirmed', 'in_progress', 'completed', 'invoiced'];
+    const STATUS_EDITABLE = ['draft', 'confirmed', 'in_progress', 'completed', 'cancelled'];
     const STATUS_LABELS = {
         draft: 'Draft', confirmed: 'Confirmed', in_progress: 'In Progress',
         completed: 'Completed', invoiced: 'Invoiced', cancelled: 'Cancelled'
@@ -627,8 +777,14 @@ function serviceOrderPage(opts) {
         branches: opts.branches,
         isSuperAdmin: opts.isSuperAdmin,
         defaultBranchId: opts.defaultBranchId,
+        canCreate: opts.canCreate,
+        canEdit: opts.canEdit,
+        canDelete: opts.canDelete,
+        canDetail: opts.canDetail,
 
         masterLoaded: false,
+        masterBranchId: null,
+        masterLoading: false,
         customers: [],
         users: [],
         components: [],
@@ -638,17 +794,23 @@ function serviceOrderPage(opts) {
         editMode: false,
         detailMode: false,
         loading: false,
+        fetchingOrder: false,
+        fetchingMode: 'detail',
         saving: false,
         creatingInvoice: false,
 
         modalTitle: '',
         modalSubtitle: '',
 
-        formData: this.emptyForm(),
+        formData: {},
         detailData: {},
         invoiceData: {},
 
-        init() {},
+        init() {
+            this.formData = this.emptyForm();
+            this.invoiceData = { transaction_date: '', items: [], grand_total: 0, notes: '' };
+            window.openServiceOrderModal = (type) => this.openCreate(type);
+        },
 
         emptyForm() {
             return {
@@ -673,19 +835,58 @@ function serviceOrderPage(opts) {
             };
         },
 
-        async ensureMaster() {
-            if (this.masterLoaded) return;
+        async ensureMaster(branchId = null, force = false) {
+            const requestedBranchId = branchId ?? this.formData.branch_id ?? '';
+            const normalizedBranchId = String(requestedBranchId || '');
+
+            if (this.isSuperAdmin && !normalizedBranchId) {
+                this.customers = [];
+                this.users = [];
+                this.components = [];
+                this.masterLoaded = false;
+                this.masterBranchId = '';
+                this.masterLoading = false;
+                return;
+            }
+
+            if (this.masterLoaded && (!this.isSuperAdmin || (!force && this.masterBranchId === normalizedBranchId))) {
+                return;
+            }
+
             try {
+                this.masterLoading = true;
                 const params = {};
-                if (this.isSuperAdmin && this.formData.branch_id) params.branch_id = this.formData.branch_id;
+                if (this.isSuperAdmin && normalizedBranchId) params.branch_id = normalizedBranchId;
                 const res = await axios.get(`{{ route('order-jasa.master-data') }}`, { params });
-                this.customers = res.data.customers || [];
-                this.users = res.data.users || [];
-                this.components = res.data.components || [];
+                this.customers = (res.data.customers || []).map((customer) => ({
+                    id: customer.id,
+                    full_name: customer.full_name || customer.name || 'Pelanggan',
+                    branch_id: customer.branch_id || null,
+                }));
+                this.users = (res.data.users || []).map((user) => ({
+                    id: user.id,
+                    name: user.name || 'User',
+                    branch_id: user.branch_id || null,
+                    branch_name: user.branch?.name || user.branch_name || '',
+                    is_super_admin: !!user.is_super_admin,
+                }));
+                this.components = (res.data.components || []).map((component) => ({
+                    id: component.id,
+                    name: component.name || 'Komponen',
+                    type_size: component.type_size || '',
+                    label: (component.name || 'Komponen') + (component.type_size ? ' - ' + component.type_size : ''),
+                    qty: Number(component.qty || 0),
+                    branch_id: component.branch_id || null,
+                    branch_name: component.branch?.name || component.branch_name || '',
+                    category_name: component.component_category?.name || component.component_category_name || '',
+                }));
                 this.masterLoaded = true;
+                this.masterBranchId = this.isSuperAdmin ? normalizedBranchId : null;
             } catch (e) {
                 console.error(e);
-                if (window.showToast) showToast('Gagal memuat master data', 'error');
+                window.toast.error(e.response?.data?.message || 'Gagal memuat master data.');
+            } finally {
+                this.masterLoading = false;
             }
         },
 
@@ -704,61 +905,93 @@ function serviceOrderPage(opts) {
             if (!bid) return this.components;
             return this.components.filter(c => parseInt(c.branch_id, 10) === bid);
         },
+        searchOptions(items, query, fields = []) {
+            const keyword = String(query || '').toLowerCase().trim();
+            if (!keyword) return items;
+            return (items || []).filter((item) => fields.some((field) => String(item?.[field] || '').toLowerCase().includes(keyword)));
+        },
+        branchById(id) {
+            return this.branches.find((branch) => String(branch.id) === String(id)) || null;
+        },
+        customerById(id) {
+            return this.customers.find((customer) => String(customer.id) === String(id)) || null;
+        },
+        userById(id) {
+            return this.users.find((user) => String(user.id) === String(id)) || null;
+        },
 
         typeLabel(type) {
             return type === 'training' ? 'Pelatihan' : 'Servis';
         },
         statusLabel(status) { return STATUS_LABELS[status] || status || '-'; },
         statusBadgeClass(status) { return STATUS_BADGES[status] || 'badge-neutral'; },
+        formStatusOptions() {
+            return STATUS_EDITABLE.map((status) => ({ value: status, label: STATUS_LABELS[status] }));
+        },
+        canEditStatusField() {
+            return this.canEdit || !this.editMode;
+        },
 
         async openCreate(type) {
-            await this.ensureMaster();
             this.formData = this.emptyForm();
             this.formData.order_type = type;
             this.editMode = false;
             this.detailMode = false;
-            this.modalTitle = type === 'training' ? 'Buat Order Pelatihan' : 'Buat Order Servis';
-            this.modalSubtitle = 'Harga jasa ditentukan saat invoice diterbitkan.';
-            this.modalOpen = true;
-        },
-
-        async openEdit(id) {
-            await this.ensureMaster();
             this.loading = true;
             this.modalOpen = true;
-            this.editMode = true;
-            this.detailMode = false;
+            this.modalTitle = type === 'training' ? 'Buat Order Pelatihan' : 'Buat Order Servis';
+            this.modalSubtitle = 'Harga jasa ditentukan saat invoice diterbitkan.';
+
             try {
-                const res = await axios.get(`{{ route('order-jasa.show', ['id' => '__ID__']) }}`.replace('__ID__', id));
-                this.formData = this.mapDetailToForm(res.data);
-                this.modalTitle = (this.formData.order_type === 'training' ? 'Edit Order Pelatihan' : 'Edit Order Servis') + ' - ' + (res.data.order_number || '');
-                this.modalSubtitle = '';
-            } catch (e) {
-                console.error(e);
-                if (window.showToast) showToast('Gagal memuat data order', 'error');
-                this.closeModal();
+                await this.ensureMaster(this.formData.branch_id, true);
             } finally {
                 this.loading = false;
             }
         },
 
-        async openDetail(id) {
-            await this.ensureMaster();
+        async openEdit(id) {
+            this.fetchingOrder = true;
+            this.fetchingMode = 'edit';
             this.loading = true;
-            this.modalOpen = true;
+            this.editMode = true;
+            this.detailMode = false;
+            try {
+                const res = await axios.get(`{{ route('order-jasa.show', ['id' => '__ID__']) }}`.replace('__ID__', id));
+                this.formData = this.mapDetailToForm(res.data);
+                await this.ensureMaster(this.formData.branch_id, true);
+                this.modalTitle = (this.formData.order_type === 'training' ? 'Edit Order Pelatihan' : 'Edit Order Servis') + ' - ' + (res.data.order_number || '');
+                this.modalSubtitle = '';
+                this.modalOpen = true;
+            } catch (e) {
+                console.error(e);
+                window.toast.error(e.response?.data?.message || 'Gagal memuat data order.');
+                this.closeModal();
+            } finally {
+                this.fetchingOrder = false;
+                this.loading = false;
+            }
+        },
+
+        async openDetail(id) {
+            this.fetchingOrder = true;
+            this.fetchingMode = 'detail';
+            this.loading = true;
             this.editMode = false;
             this.detailMode = true;
             try {
                 const res = await axios.get(`{{ route('order-jasa.show', ['id' => '__ID__']) }}`.replace('__ID__', id));
                 this.formData = this.mapDetailToForm(res.data);
+                await this.ensureMaster(this.formData.branch_id, true);
                 this.detailData = res.data;
                 this.modalTitle = (this.formData.order_type === 'training' ? 'Detail Order Pelatihan' : 'Detail Order Servis') + ' - ' + (res.data.order_number || '');
                 this.modalSubtitle = '';
+                this.modalOpen = true;
             } catch (e) {
                 console.error(e);
-                if (window.showToast) showToast('Gagal memuat detail', 'error');
+                window.toast.error(e.response?.data?.message || 'Gagal memuat detail order.');
                 this.closeModal();
             } finally {
+                this.fetchingOrder = false;
                 this.loading = false;
             }
         },
@@ -785,7 +1018,7 @@ function serviceOrderPage(opts) {
                     user_id: a.user_id, role: a.role || '', notes: a.notes || ''
                 })),
                 components: (d.components || []).map(c => ({
-                    component_id: c.component_id, qty: c.qty, billable: !!c.billable, notes: c.notes || ''
+                    component_id: c.component_id, qty: c.qty, notes: c.notes || ''
                 })),
             };
         },
@@ -793,6 +1026,7 @@ function serviceOrderPage(opts) {
         closeModal() {
             this.modalOpen = false;
             this.loading = false;
+            this.fetchingOrder = false;
             this.formData = this.emptyForm();
             this.detailData = {};
         },
@@ -804,8 +1038,68 @@ function serviceOrderPage(opts) {
             this.formData.assignments.splice(idx, 1);
         },
 
+        validateForm() {
+            if (this.isSuperAdmin && !this.formData.branch_id) {
+                window.toast.error('Cabang wajib dipilih.');
+                return false;
+            }
+
+            if (!this.formData.order_date) {
+                window.toast.error('Tanggal order wajib diisi.');
+                return false;
+            }
+
+            if (!this.formData.customer_id) {
+                window.toast.error('Pelanggan wajib dipilih.');
+                return false;
+            }
+
+            if (!String(this.formData.title || '').trim()) {
+                window.toast.error('Judul order wajib diisi.');
+                return false;
+            }
+
+            const emptyAssignment = (this.formData.assignments || []).find((assignment) => !assignment.user_id);
+            if (emptyAssignment) {
+                window.toast.error('Setiap petugas yang ditambahkan wajib memilih user.');
+                return false;
+            }
+
+            if (this.formData.order_type === 'training') {
+                const duration = Number(this.formData.duration_days || 0);
+                if (this.formData.duration_days !== null && this.formData.duration_days !== '' && duration < 1) {
+                    window.toast.error('Durasi pelatihan minimal 1 hari.');
+                    return false;
+                }
+            }
+
+            if (this.formData.order_type === 'service') {
+                const invalidComponent = (this.formData.components || []).find((component) => {
+                    return component.component_id && (!(Number(component.qty) > 0));
+                });
+
+                if (invalidComponent) {
+                    window.toast.error('Qty komponen servis harus lebih dari 0.');
+                    return false;
+                }
+            }
+
+            return true;
+        },
+
+        async handleBranchChange() {
+            if (!this.isSuperAdmin) {
+                return;
+            }
+
+            this.formData.customer_id = '';
+            this.formData.assignments = [];
+            this.formData.components = this.formData.order_type === 'service' ? [] : this.formData.components;
+            await this.ensureMaster(this.formData.branch_id, true);
+        },
+
         addComponent() {
-            this.formData.components.push({ component_id: '', qty: 1, billable: true, notes: '' });
+            this.formData.components.push({ component_id: '', qty: 1, notes: '' });
         },
         removeComponent(idx) {
             this.formData.components.splice(idx, 1);
@@ -816,6 +1110,7 @@ function serviceOrderPage(opts) {
 
         async save() {
             if (this.saving) return;
+            if (!this.validateForm()) return;
             this.saving = true;
             try {
                 const url = this.editMode
@@ -823,11 +1118,23 @@ function serviceOrderPage(opts) {
                     : `{{ route('order-jasa.store') }}`;
                 const method = this.editMode ? 'put' : 'post';
                 const payload = { ...this.formData };
+                const currentOrderType = payload.order_type;
                 if (this.editMode) delete payload.order_type;
-                if (payload.order_type === 'training') delete payload.components;
+                if (currentOrderType === 'training') delete payload.components;
+                if (payload.status === 'invoiced') {
+                    payload.status = this.editMode ? (this.detailData.status || this.formData.status || 'draft') : 'draft';
+                }
+                if (currentOrderType === 'service' && Array.isArray(payload.components)) {
+                    payload.components = payload.components.map((component) => ({
+                        component_id: component.component_id,
+                        qty: component.qty,
+                        notes: component.notes || '',
+                        billable: true,
+                    }));
+                }
 
                 const res = await axios[method](url, payload);
-                if (window.showToast) showToast(res.data.message || 'Berhasil disimpan', 'success');
+                window.toast.success(res.data.message || 'Order jasa berhasil disimpan.');
                 this.closeModal();
                 window.location.reload();
             } catch (e) {
@@ -839,7 +1146,7 @@ function serviceOrderPage(opts) {
                     const firstKey = Object.keys(errors)[0];
                     if (firstKey) detail = msg + ': ' + (Array.isArray(errors[firstKey]) ? errors[firstKey][0] : errors[firstKey]);
                 }
-                if (window.showToast) showToast(detail, 'error');
+                window.toast.error(detail);
             } finally {
                 this.saving = false;
             }
@@ -849,26 +1156,13 @@ function serviceOrderPage(opts) {
             if (!confirm('Hapus order jasa ' + (orderNumber || '') + '? Tindakan ini tidak bisa dibatalkan.')) return;
             try {
                 const res = await axios.delete(`{{ route('order-jasa.destroy', ['id' => '__ID__']) }}`.replace('__ID__', id));
-                if (window.showToast) showToast(res.data.message || 'Berhasil dihapus', 'success');
+                window.toast.success(res.data.message || 'Order jasa berhasil dihapus.');
                 window.location.reload();
             } catch (e) {
                 console.error(e);
                 const msg = e.response?.data?.message || 'Gagal menghapus';
-                if (window.showToast) showToast(msg, 'error');
+                window.toast.error(msg);
             }
-        },
-
-        availableStatusTransitions() {
-            const current = this.detailData.status || this.formData.status;
-            if (['invoiced', 'cancelled'].includes(current)) return [];
-            const currentIdx = STATUS_FLOW.indexOf(current);
-            const options = [];
-            for (let i = currentIdx + 1; i < STATUS_FLOW.length - 1; i++) {
-                // exclude 'invoiced' as it can only be set via createInvoice
-                options.push({ value: STATUS_FLOW[i], label: STATUS_LABELS[STATUS_FLOW[i]] });
-            }
-            options.push({ value: 'cancelled', label: 'Cancel' });
-            return options;
         },
 
         async changeStatus(newStatus) {
@@ -878,16 +1172,44 @@ function serviceOrderPage(opts) {
                     `{{ route('order-jasa.update-status', ['id' => '__ID__']) }}`.replace('__ID__', this.formData.id),
                     { status: newStatus, note }
                 );
-                if (window.showToast) showToast(res.data.message || 'Status diubah', 'success');
+                window.toast.success(res.data.message || 'Status order jasa berhasil diubah.');
                 await this.openDetail(this.formData.id);
             } catch (e) {
                 console.error(e);
                 const msg = e.response?.data?.message || 'Gagal mengubah status';
-                if (window.showToast) showToast(msg, 'error');
+                window.toast.error(msg);
+            }
+        },
+        async changeListStatus(id, previousStatus, event) {
+            if (!this.canEdit) return;
+
+            const select = event.target;
+            const newStatus = select.value;
+
+            if (!newStatus || newStatus === previousStatus) {
+                select.value = previousStatus;
+                return;
+            }
+
+            const note = newStatus === 'cancelled' ? prompt('Alasan pembatalan (opsional):') : null;
+
+            try {
+                const res = await axios.patch(
+                    `{{ route('order-jasa.update-status', ['id' => '__ID__']) }}`.replace('__ID__', id),
+                    { status: newStatus, note }
+                );
+                window.toast.success(res.data.message || 'Status order jasa berhasil diubah.');
+                window.location.reload();
+            } catch (e) {
+                console.error(e);
+                select.value = previousStatus;
+                const msg = e.response?.data?.message || 'Gagal mengubah status';
+                window.toast.error(msg);
             }
         },
 
         canCreateInvoice() {
+            if (!this.canCreate) return false;
             const current = this.detailData.status;
             return ['confirmed', 'in_progress', 'completed'].includes(current) && !this.detailData.invoice;
         },
@@ -899,9 +1221,9 @@ function serviceOrderPage(opts) {
                 description: (this.formData.order_type === 'training' ? 'Jasa pelatihan: ' : 'Jasa servis: ') + (this.formData.title || ''),
                 qty: 1, unit: 'jasa', price: 0,
             });
-            // Add billable components for service
+            // Add recorded service components into invoice draft
             if (this.formData.order_type === 'service') {
-                (this.formData.components || []).filter(c => c.billable && c.component_id).forEach(c => {
+                (this.formData.components || []).filter(c => c.component_id).forEach(c => {
                     const comp = this.components.find(cc => parseInt(cc.id, 10) === parseInt(c.component_id, 10));
                     items.push({
                         description: 'Komponen: ' + (comp?.name || 'Komponen'),
@@ -928,8 +1250,37 @@ function serviceOrderPage(opts) {
             return (this.invoiceData.items || []).reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
         },
 
+        validateInvoiceData() {
+            if (!this.invoiceData.transaction_date) {
+                window.toast.error('Tanggal invoice wajib diisi.');
+                return false;
+            }
+
+            if (!Array.isArray(this.invoiceData.items) || this.invoiceData.items.length === 0) {
+                window.toast.error('Tambahkan minimal satu item invoice.');
+                return false;
+            }
+
+            const invalidItem = this.invoiceData.items.find((item) => {
+                return !String(item.description || '').trim() || !(Number(item.qty) > 0) || Number(item.price) < 0;
+            });
+
+            if (invalidItem) {
+                window.toast.error('Pastikan semua item invoice memiliki deskripsi, qty, dan harga yang valid.');
+                return false;
+            }
+
+            if (Number(this.invoiceData.grand_total) < 0) {
+                window.toast.error('Grand total tidak boleh negatif.');
+                return false;
+            }
+
+            return true;
+        },
+
         async submitInvoice() {
             if (this.creatingInvoice) return;
+            if (!this.validateInvoiceData()) return;
             this.creatingInvoice = true;
             try {
                 const payload = {
@@ -942,14 +1293,14 @@ function serviceOrderPage(opts) {
                     `{{ route('order-jasa.create-invoice', ['id' => '__ID__']) }}`.replace('__ID__', this.formData.id),
                     payload
                 );
-                if (window.showToast) showToast(res.data.message || 'Invoice berhasil dibuat', 'success');
+                window.toast.success(res.data.message || 'Invoice berhasil dibuat dari order jasa.');
                 this.invoiceModalOpen = false;
                 this.closeModal();
                 window.location.reload();
             } catch (e) {
                 console.error(e);
                 const msg = e.response?.data?.message || 'Gagal membuat invoice';
-                if (window.showToast) showToast(msg, 'error');
+                window.toast.error(msg);
             } finally {
                 this.creatingInvoice = false;
             }

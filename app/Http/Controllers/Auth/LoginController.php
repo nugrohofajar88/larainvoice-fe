@@ -8,6 +8,33 @@ use Illuminate\Http\Request;
 
 class LoginController extends Controller
 {
+    private function resolveMenus(array $data, string $token): array
+    {
+        $menus = $data['menus'] ?? $data['menu'] ?? [];
+
+        if (!empty($menus) && is_array($menus)) {
+            return $menus;
+        }
+
+        try {
+            $apiUrl = config('services.pioneer.api_url');
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->acceptJson()
+                ->get($apiUrl . '/menus');
+
+            if ($response->successful()) {
+                $fetchedMenus = $response->json();
+                if (is_array($fetchedMenus)) {
+                    return $fetchedMenus;
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Fallback fetch menus after login failed: ' . $e->getMessage());
+        }
+
+        return [];
+    }
+
     public function showLogin()
     {
         if (session('authenticated')) {
@@ -44,6 +71,8 @@ class LoginController extends Controller
                 return back()->withErrors(['Backend mengembalikan response login yang tidak valid.'])->withInput();
             }
 
+            $menus = $this->resolveMenus($data, $data['token']);
+
             session([
                 'authenticated' => true,
                 'api_token' => $data['token'],
@@ -53,8 +82,8 @@ class LoginController extends Controller
                 'role' => $data['user']['role']['name'] ?? 'user',
                 'role_label' => ucwords($data['user']['role']['name'] ?? 'User'),
                 'branch_id' => $data['user']['branch_id'],
-                'menus' => $data['menus'],
-                'permissions' => $data['permissions'],
+                'menus' => $menus,
+                'permissions' => $data['permissions'] ?? [],
             ]);
 
             return redirect()->route('dashboard')->with('success', 'Selamat datang, ' . $data['user']['name'] . '!');
