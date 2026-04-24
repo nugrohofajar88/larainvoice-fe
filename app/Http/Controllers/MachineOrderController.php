@@ -111,6 +111,27 @@ class MachineOrderController extends Controller
         }
     }
 
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $response = $this->apiClient()->patch("{$this->apiUrl}/{$id}/status", $this->getApiParams($request->all()));
+
+            if ($response->failed()) {
+                $error = $this->decodeApiValue($response, 'message', 'Gagal memperbarui status machine order.');
+                return response()->json(['message' => $error], $response->status());
+            }
+
+            return response()->json([
+                'message' => $this->decodeApiValue($response, 'message', 'Status machine order berhasil diperbarui.'),
+                'data' => $this->decodeApiValue($response, 'data', []),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $v) {
+            return response()->json(['message' => 'Validasi gagal.', 'errors' => $v->errors()], 422);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Koneksi gagal: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function destroy($id)
     {
         try {

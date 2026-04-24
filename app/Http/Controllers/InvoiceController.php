@@ -62,6 +62,7 @@ class InvoiceController extends Controller
             'components' => [],
             'cost_types' => [],
             'cutting_prices' => [],
+            'machine_orders' => [],
         ]));
     }
 
@@ -69,6 +70,29 @@ class InvoiceController extends Controller
     {
         try {
             $payload = $request->except(['_token', '_method']);
+            $invoiceType = $payload['invoice_type'] ?? 'sales';
+
+            if ($invoiceType === 'machine_order') {
+                $machineOrderId = $payload['machine_order_id'] ?? null;
+
+                if (!$machineOrderId) {
+                    return back()->withErrors(['Pilih nomor order mesin terlebih dahulu.'])->withInput();
+                }
+
+                $response = $this->apiClient()->post(
+                    config('services.pioneer.api_url') . "/machine-orders/{$machineOrderId}/create-invoice",
+                    $this->getApiParams([
+                        'transaction_date' => $payload['transaction_date'] ?? null,
+                    ])
+                );
+
+                if ($response->failed()) {
+                    $error = $this->decodeApiValue($response, 'message', 'Gagal membuat invoice dari order mesin.');
+                    return back()->withErrors([$error])->withInput();
+                }
+
+                return redirect()->route('sales-list.index')->with('success', 'Invoice order mesin berhasil dibuat.');
+            }
 
             if (($payload['machine_id'] ?? '') === '') {
                 $payload['machine_id'] = null;

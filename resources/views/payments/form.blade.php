@@ -8,6 +8,16 @@
     $payments = $invoice['payments'] ?? [];
     $isCancelled = ($invoice['production_status'] ?? null) === 'cancelled';
     $isPaidOff = $remaining <= 0;
+    $paymentTypeMeta = function ($payment) {
+        $type = $payment['payment_type'] ?? (!empty($payment['is_dp']) ? 'cicilan' : 'pelunasan');
+
+        return match ($type) {
+            'dp' => ['label' => 'DP', 'class' => 'badge-warning'],
+            'cicilan' => ['label' => 'Cicilan', 'class' => 'badge-warning'],
+            'refund' => ['label' => 'Refund', 'class' => 'badge-danger'],
+            default => ['label' => 'Pelunasan', 'class' => 'badge-success'],
+        };
+    };
 @endphp
 
 <div
@@ -79,6 +89,7 @@
                     @else
                         <div class="space-y-3">
                             @foreach($payments as $pay)
+                                @php($paymentBadge = $paymentTypeMeta($pay))
                                 <div class="rounded-xl border border-slate-200 p-4">
                                     <div class="flex items-center justify-between gap-3">
                                         <div>
@@ -87,8 +98,8 @@
                                         </div>
                                         <div class="text-right">
                                             <p class="font-mono font-bold text-slate-900">Rp {{ number_format($pay['amount'] ?? 0, 0, ',', '.') }}</p>
-                                            <span class="badge {{ !empty($pay['is_dp']) ? 'badge-warning' : 'badge-success' }}">
-                                                {{ !empty($pay['is_dp']) ? 'Cicilan' : 'Pelunasan' }}
+                                            <span class="badge {{ $paymentBadge['class'] }}">
+                                                {{ $paymentBadge['label'] }}
                                             </span>
                                         </div>
                                     </div>

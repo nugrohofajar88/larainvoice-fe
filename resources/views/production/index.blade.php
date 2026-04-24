@@ -268,13 +268,14 @@
         </div>
     </div>
 
-    <div class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/40 px-4 js-invoice-detail-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-detail-title">
-        <div class="w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
+    <div class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/40 px-4 py-6 js-invoice-detail-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-detail-title">
+        <div class="mx-auto flex min-h-full w-full max-w-2xl items-center justify-center">
+        <div class="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
             <div class="border-b border-slate-100 px-6 py-5">
                 <h2 id="invoice-detail-title" class="text-lg font-bold text-slate-900">Detail Invoice</h2>
                 <p class="mt-1 text-sm text-slate-500">Ringkasan invoice ditampilkan dalam mode baca saja agar informasi tetap cepat diakses dari daftar.</p>
             </div>
-            <div class="grid grid-cols-1 gap-4 px-6 py-5 text-sm md:grid-cols-2">
+            <div class="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-5 text-sm md:grid-cols-2">
                 <div>
                     <p class="text-xs text-slate-500">Nomor Invoice</p>
                     <p class="font-semibold text-slate-900 js-invoice-detail-number">-</p>
@@ -362,6 +363,7 @@
             <div class="flex items-center justify-end border-t border-slate-100 px-6 py-4">
                 <button type="button" class="btn btn-outline js-invoice-detail-close">Tutup</button>
             </div>
+        </div>
         </div>
     </div>
 </div>

@@ -56,13 +56,22 @@
                 </thead>
                 <tbody>
                     @forelse($payments as $pay)
+                    @php
+                        $paymentType = $pay['payment_type'] ?? (!empty($pay['is_dp']) ? 'cicilan' : 'pelunasan');
+                        $paymentTypeMeta = match ($paymentType) {
+                            'dp' => ['label' => 'DP', 'class' => 'badge-warning'],
+                            'cicilan' => ['label' => 'Cicilan', 'class' => 'badge-warning'],
+                            'refund' => ['label' => 'Refund', 'class' => 'badge-danger'],
+                            default => ['label' => 'Pelunasan', 'class' => 'badge-neutral'],
+                        };
+                    @endphp
                     <tr>
                         <td><span class="text-slate-400 font-mono text-xs">{{ ($payments->currentPage() - 1) * $payments->perPage() + $loop->iteration }}</span></td>
                         <td class="font-mono text-xs text-brand font-bold">{{ $pay['invoice_number'] }}</td>
                         <td class="text-slate-500 text-xs">{{ $pay['branch'] ?? '-' }}</td>
                         <td class="text-right font-mono font-semibold">Rp {{ number_format($pay['amount']) }}</td>
                         <td><span class="{{ $pay['method']==='Cash' ? 'badge-success' : 'badge-info' }} text-xs">{{ $pay['method'] }}</span></td>
-                        <td><span class="{{ $pay['is_dp'] ? 'badge-warning' : 'badge-neutral' }} text-xs">{{ $pay['is_dp'] ? 'Cicilan' : 'Pelunasan' }}</span></td>
+                        <td><span class="{{ $paymentTypeMeta['class'] }} text-xs">{{ $paymentTypeMeta['label'] }}</span></td>
                         <td class="text-slate-500 text-xs">{{ date('d/m/Y', strtotime($pay['date'])) }}</td>
                     </tr>
                     @empty

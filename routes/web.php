@@ -124,6 +124,7 @@ Route::middleware(['auth.check', 'permission'])->group(function () {
         Route::get('/{id}', [MachineOrderController::class, 'show'])->name('show');
         Route::post('/', [MachineOrderController::class, 'store'])->name('store');
         Route::put('/{id}', [MachineOrderController::class, 'update'])->name('update');
+        Route::patch('/{id}/status', [MachineOrderController::class, 'updateStatus'])->name('update-status');
         Route::delete('/{id}', [MachineOrderController::class, 'destroy'])->name('destroy');
     });
 

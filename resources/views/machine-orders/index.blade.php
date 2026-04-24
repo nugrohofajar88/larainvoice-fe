@@ -88,6 +88,8 @@
         'confirmed' => 'Confirmed',
         'in_production' => 'In Production',
         'ready' => 'Ready',
+        'in_shipping' => 'In Shipping',
+        'accepted' => 'Accepted',
         'completed' => 'Completed',
         'cancelled' => 'Cancelled',
     ];
@@ -98,6 +100,8 @@
         'confirmed' => 'badge-info',
         'in_production' => 'badge-warning',
         'ready' => 'badge-success',
+        'in_shipping' => 'badge-info',
+        'accepted' => 'badge-success',
         'completed' => 'badge-success',
         'cancelled' => 'badge-danger',
     ];
@@ -112,6 +116,7 @@
         branches: {{ \Illuminate\Support\Js::from($branchOptions) }},
         isSuperAdmin: {{ $isSuperAdmin ? 'true' : 'false' }},
         defaultBranchId: {{ \Illuminate\Support\Js::from($defaultBranchId) }},
+        selectedStatus: {{ \Illuminate\Support\Js::from($selectedStatus) }},
     })"
     x-init="init()"
     x-cloak
@@ -139,7 +144,7 @@
             <div class="flex items-center justify-between gap-2">
                 <div>
                     <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Semua</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1">{{ (int) $statusCounts->sum() }}</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1" data-status-count="all">{{ (int) $statusCounts->sum() }}</p>
                 </div>
                 <span class="badge {{ $statusBadgeStyles['all'] }}">Semua</span>
             </div>
@@ -154,7 +159,7 @@
             <div class="flex items-center justify-between gap-2">
                 <div>
                     <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{{ $label }}</p>
-                    <p class="text-2xl font-black text-slate-900 mt-1">{{ (int) ($statusCounts->get($key, 0)) }}</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1" data-status-count="{{ $key }}">{{ (int) ($statusCounts->get($key, 0)) }}</p>
                 </div>
                 <span class="badge {{ $statusBadgeStyles[$key] }}">{{ $label }}</span>
             </div>
@@ -209,7 +214,7 @@
                             <th class="py-2 px-4 shadow-inner">
                                 <select name="status" onchange="document.getElementById('filterForm').submit()" class="w-full text-xs font-normal bg-white border border-slate-200 rounded px-2 py-1.5 focus:ring-1 focus:ring-brand outline-none transition-all">
                                     <option value="">Semua status</option>
-                                    @foreach(['draft' => 'Draft', 'confirmed' => 'Confirmed', 'in_production' => 'In Production', 'ready' => 'Ready', 'completed' => 'Completed', 'cancelled' => 'Cancelled'] as $key => $label)
+                                    @foreach($statusLabels as $key => $label)
                                         <option value="{{ $key }}" {{ request('status') === $key ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>
@@ -223,7 +228,7 @@
                     </thead>
                     <tbody>
                         @forelse($orders as $item)
-                        <tr>
+                        <tr data-order-row="{{ $item['id'] }}" data-order-status="{{ $item['status'] ?? 'draft' }}">
                             <td class="text-center">
                                 <span class="text-slate-400 font-mono text-xs">{{ ($orders->currentPage() - 1) * $orders->perPage() + $loop->iteration }}</span>
                             </td>
@@ -238,9 +243,26 @@
                             <td>{{ $item['order_date'] ?? '-' }}</td>
                             <td class="text-right font-semibold text-slate-700">Rp {{ number_format((float) ($item['grand_total'] ?? 0), 0, ',', '.') }}</td>
                             <td>
-                                <span class="badge badge-neutral text-[10px] px-2 py-0.5">
-                                    {{ ucwords(str_replace('_', ' ', $item['status'] ?? 'draft')) }}
-                                </span>
+                                @php
+                                    $itemStatus = $item['status'] ?? 'draft';
+                                @endphp
+                                @if(\App\Helpers\MenuHelper::hasPermission('machine-order', 'edit'))
+                                    <select
+                                        class="w-full min-w-[10rem] text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-2 focus:ring-1 focus:ring-brand outline-none transition-all"
+                                        data-inline-status-select="{{ $item['id'] }}"
+                                        data-previous-status="{{ $itemStatus }}"
+                                        {{ in_array($itemStatus, ['completed', 'cancelled'], true) ? 'disabled' : '' }}
+                                        @change="handleInlineStatusChange({{ $item['id'] }}, $event)"
+                                    >
+                                        @foreach($statusLabels as $key => $label)
+                                            <option value="{{ $key }}" {{ $itemStatus === $key ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <span class="badge {{ $statusBadgeStyles[$itemStatus] ?? 'badge-neutral' }} text-[10px] px-2 py-0.5">
+                                        {{ $statusLabels[$itemStatus] ?? ucwords(str_replace('_', ' ', $itemStatus)) }}
+                                    </span>
+                                @endif
                             </td>
                             <td>
                                 <div class="flex items-center justify-center gap-1">
@@ -263,7 +285,7 @@
                             </td>
                         </tr>
                         @empty
-                        <tr>
+                        <tr data-empty-row>
                             <td colspan="8" class="py-20 text-center text-slate-400 italic">Data machine order belum tersedia.</td>
                         </tr>
                         @endforelse
@@ -277,6 +299,63 @@
             {{ $orders->links() }}
         </div>
         @endif
+    </div>
+
+    <div
+        x-show="fetchingOrder"
+        class="fixed inset-0 z-[70] flex items-center justify-center px-4"
+        style="display: none;"
+        x-transition.opacity
+    >
+        <div class="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"></div>
+        <div class="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white px-6 py-6 shadow-2xl">
+            <div class="flex items-center gap-4">
+                <div class="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
+                    <svg class="h-7 w-7 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                        <path class="opacity-90" d="M22 12a10 10 0 00-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900" x-text="detailMode ? 'Membuka detail order mesin' : 'Membuka form edit order mesin'"></h3>
+                    <p class="mt-1 text-sm text-slate-500">Data sedang diambil dari backend. Mohon tunggu sebentar.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div
+        x-show="shippingNoteModal.open"
+        class="fixed inset-0 z-[75] overflow-y-auto px-4 py-6"
+        style="display: none;"
+        x-transition.opacity
+    >
+        <div class="fixed inset-0 bg-slate-950/45 backdrop-blur-[2px]" @click="closeShippingNoteModal(true)"></div>
+        <div class="relative mx-auto flex min-h-full w-full max-w-lg items-center justify-center">
+            <div class="w-full rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                <div class="border-b border-slate-100 px-6 py-5">
+                    <h3 class="text-lg font-bold text-slate-900">Keterangan Pengiriman</h3>
+                    <p class="mt-1 text-sm text-slate-500">Isi keterangan bebas sebelum status order diubah ke <strong>In Shipping</strong>.</p>
+                </div>
+                <div class="px-6 py-5">
+                    <label class="block text-xs font-bold text-slate-700 mb-2">Keterangan</label>
+                    <textarea
+                        x-model="shippingNoteModal.note"
+                        x-ref="shippingNoteField"
+                        class="form-input w-full min-h-32"
+                        placeholder="Contoh: JNE Trucking, No. Resi 12345, dikirim dari gudang pusat."
+                    ></textarea>
+                    <p class="mt-2 text-xs text-slate-400">Boleh diisi nama ekspedisi, nomor pengiriman, atau catatan bebas lainnya.</p>
+                </div>
+                <div class="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+                    <button type="button" @click="closeShippingNoteModal(true)" class="btn btn-outline">Batal</button>
+                    <button type="button" @click="submitShippingNoteModal()" class="btn btn-primary" :disabled="shippingNoteModal.submitting">
+                        <span x-show="!shippingNoteModal.submitting">Simpan Status</span>
+                        <span x-show="shippingNoteModal.submitting" style="display:none;">Menyimpan...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-transition>
@@ -672,6 +751,53 @@
                         </div>
                     </div>
 
+                    <div x-show="detailMode" class="border-t border-slate-100 pt-5">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">Riwayat Order Mesin</h4>
+                                <p class="text-[11px] text-slate-500">Status terbaru tampil paling atas.</p>
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3">
+                            <template x-if="orderLogs.length === 0">
+                                <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
+                                    Riwayat order mesin belum tersedia.
+                                </div>
+                            </template>
+
+                            <div class="space-y-2.5" x-show="orderLogs.length > 0">
+                                <template x-for="log in orderLogs" :key="`order-log-${log.id}`">
+                                    <div class="relative pl-7">
+                                        <div class="absolute left-3 top-0 bottom-0 w-px bg-slate-200"></div>
+                                        <div class="absolute left-0 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white shadow-sm"
+                                            :class="timelineDotClass(log.to_status)">
+                                            <div class="h-2 w-2 rounded-full bg-white"></div>
+                                        </div>
+                                        <div class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                                            <div class="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-slate-900 leading-tight" x-text="log.to_status_label || '-'"></p>
+                                                </div>
+                                                <div class="text-[11px] text-slate-400 whitespace-nowrap" x-text="log.created_at || '-'"></div>
+                                            </div>
+                                            <div class="mt-2 flex flex-col gap-1 text-[11px] text-slate-600 md:flex-row md:items-start md:gap-4">
+                                                <div class="min-w-0">
+                                                    <span class="font-semibold text-slate-500">Petugas:</span>
+                                                    <span x-text="log.handled_by || 'Sistem'"></span>
+                                                </div>
+                                                <div class="min-w-0 md:flex-1">
+                                                    <span class="font-semibold text-slate-500">Catatan:</span>
+                                                    <span x-text="log.note || 'Tanpa catatan tambahan.'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mt-6 pt-2">
                         <div x-show="detailMode" class="flex justify-end">
                             <button type="button" @click="attemptClose()" class="btn btn-primary px-8 py-3 rounded-2xl min-w-[120px] justify-center">Tutup</button>
@@ -703,6 +829,7 @@ function machineOrderPage(config) {
         editMode: false,
         detailMode: false,
         loading: false,
+        fetchingOrder: false,
         masterDataLoading: false,
         masterDataLoaded: false,
         masterDataBranchId: '',
@@ -714,14 +841,27 @@ function machineOrderPage(config) {
         branches: config.branches || [],
         isSuperAdmin: config.isSuperAdmin || false,
         defaultBranchId: config.defaultBranchId || '',
+        selectedStatus: config.selectedStatus || '',
         statusOptions: [
             { value: 'draft', label: 'Draft' },
             { value: 'confirmed', label: 'Confirmed' },
             { value: 'in_production', label: 'In Production' },
             { value: 'ready', label: 'Ready' },
+            { value: 'in_shipping', label: 'In Shipping' },
+            { value: 'accepted', label: 'Accepted' },
             { value: 'completed', label: 'Completed' },
             { value: 'cancelled', label: 'Cancelled' },
         ],
+        orderLogs: [],
+        shippingNoteModal: {
+            open: false,
+            submitting: false,
+            orderId: null,
+            previousStatus: '',
+            nextStatus: '',
+            note: '',
+            select: null,
+        },
         formData: {},
         originalSnapshot: '',
 
@@ -808,7 +948,7 @@ function machineOrderPage(config) {
         },
 
         get canEditPayments() {
-            return ['draft', 'confirmed', 'in_production', 'ready'].includes(this.currentStatus);
+            return ['draft', 'confirmed', 'in_production', 'ready', 'in_shipping', 'accepted'].includes(this.currentStatus);
         },
 
         get canEditProductionDates() {
@@ -825,6 +965,8 @@ function machineOrderPage(config) {
                 confirmed: 'Data inti order seperti cabang, pelanggan, mesin, dan qty sudah dikunci. Komponen, biaya, dan pembayaran masih bisa diubah.',
                 in_production: 'Order sudah masuk produksi. Header inti, komponen, dan biaya tambahan dikunci. Pembayaran serta tanggal produksi masih bisa diubah.',
                 ready: 'Order sudah siap. Hampir semua data dikunci, hanya pembayaran dan tanggal produksi yang masih bisa diubah.',
+                in_shipping: 'Order sedang dalam pengiriman. Data order dikunci, pembayaran masih bisa diperbarui sambil menunggu barang diterima.',
+                accepted: 'Order sudah diterima pelanggan. Data order tetap dikunci, pembayaran masih bisa diperbarui sebelum order ditutup.',
                 completed: 'Order selesai. Seluruh data bersifat readonly.',
                 cancelled: 'Order dibatalkan. Seluruh data bersifat readonly.',
             };
@@ -870,6 +1012,7 @@ function machineOrderPage(config) {
 
         init() {
             this.resetForm();
+            this.syncAllInlineStatusSelects();
         },
 
         defaultFormData() {
@@ -907,6 +1050,7 @@ function machineOrderPage(config) {
 
         resetForm() {
             this.formData = this.defaultFormData();
+            this.orderLogs = [];
             this.originalSnapshot = this.snapshotState();
         },
 
@@ -1101,6 +1245,220 @@ function machineOrderPage(config) {
 
         statusLabel(value) {
             return this.statusOptions.find(item => item.value === value)?.label || value || '-';
+        },
+
+        timelineDotClass(status) {
+            const map = {
+                draft: 'bg-slate-400',
+                confirmed: 'bg-sky-500',
+                in_production: 'bg-amber-500',
+                ready: 'bg-emerald-500',
+                in_shipping: 'bg-blue-500',
+                accepted: 'bg-lime-500',
+                completed: 'bg-green-600',
+                cancelled: 'bg-rose-500',
+            };
+
+            return map[String(status || '').toLowerCase()] || 'bg-slate-400';
+        },
+
+        canAdvanceStatus(currentStatus, targetStatus) {
+            const current = String(currentStatus || '');
+            const target = String(targetStatus || '');
+
+            if (!current || !target) {
+                return false;
+            }
+
+            if (current === target) {
+                return true;
+            }
+
+            if (['completed', 'cancelled'].includes(current)) {
+                return false;
+            }
+
+            if (target === 'cancelled') {
+                return !['completed', 'cancelled'].includes(current);
+            }
+
+            const flow = ['draft', 'confirmed', 'in_production', 'ready', 'in_shipping', 'accepted', 'completed'];
+            const currentIndex = flow.indexOf(current);
+            const targetIndex = flow.indexOf(target);
+
+            if (currentIndex === -1 || targetIndex === -1) {
+                return false;
+            }
+
+            return targetIndex > currentIndex;
+        },
+
+        syncInlineStatusSelect(select, currentStatus) {
+            if (!select) {
+                return;
+            }
+
+            const normalizedCurrent = String(currentStatus || select.dataset.previousStatus || '');
+            const isTerminal = ['completed', 'cancelled'].includes(normalizedCurrent);
+
+            Array.from(select.options || []).forEach((option) => {
+                option.disabled = !this.canAdvanceStatus(normalizedCurrent, option.value);
+            });
+
+            select.disabled = isTerminal;
+        },
+
+        syncAllInlineStatusSelects() {
+            document.querySelectorAll('[data-inline-status-select]').forEach((select) => {
+                this.syncInlineStatusSelect(select, select.dataset.previousStatus || select.value);
+            });
+        },
+
+        openShippingNoteModal(id, select, previousStatus, nextStatus) {
+            this.shippingNoteModal = {
+                open: true,
+                submitting: false,
+                orderId: id,
+                previousStatus,
+                nextStatus,
+                note: '',
+                select,
+            };
+
+            this.$nextTick(() => {
+                this.$refs.shippingNoteField?.focus();
+            });
+        },
+
+        closeShippingNoteModal(restoreSelect = false) {
+            const modal = this.shippingNoteModal;
+
+            if (restoreSelect && modal.select) {
+                modal.select.value = modal.previousStatus || modal.select.dataset.previousStatus || '';
+                this.syncInlineStatusSelect(modal.select, modal.previousStatus || modal.select.value);
+            }
+
+            this.shippingNoteModal = {
+                open: false,
+                submitting: false,
+                orderId: null,
+                previousStatus: '',
+                nextStatus: '',
+                note: '',
+                select: null,
+            };
+        },
+
+        updateStatusCount(status, delta) {
+            const key = String(status || '');
+            const countNode = document.querySelector(`[data-status-count="${key}"]`);
+
+            if (countNode) {
+                const current = Number((countNode.textContent || '0').replace(/[^\d-]/g, '')) || 0;
+                countNode.textContent = String(Math.max(current + delta, 0));
+            }
+        },
+
+        ensureEmptyTableState() {
+            const tableBody = document.querySelector('#filterForm tbody');
+            if (!tableBody) {
+                return;
+            }
+
+            const rows = tableBody.querySelectorAll('tr[data-order-row]');
+            const emptyRow = tableBody.querySelector('[data-empty-row]');
+
+            if (rows.length === 0 && !emptyRow) {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-empty-row', '');
+                tr.innerHTML = '<td colspan="8" class="py-20 text-center text-slate-400 italic">Data machine order belum tersedia.</td>';
+                tableBody.appendChild(tr);
+            }
+
+            if (rows.length > 0 && emptyRow) {
+                emptyRow.remove();
+            }
+        },
+
+        async persistInlineStatusChange(id, select, previousStatus, nextStatus, note = null) {
+            select.disabled = true;
+
+            try {
+                const payload = { status: nextStatus };
+                const normalizedNote = String(note || '').trim();
+
+                if (normalizedNote) {
+                    payload.note = normalizedNote;
+                }
+
+                const response = await axios.patch(
+                    `{{ route('machine-order.update-status', ['id' => '__ID__']) }}`.replace('__ID__', id),
+                    payload
+                );
+
+                const savedStatus = String(response.data?.data?.status || nextStatus);
+                select.dataset.previousStatus = savedStatus;
+                this.syncInlineStatusSelect(select, savedStatus);
+
+                if (previousStatus !== savedStatus) {
+                    this.updateStatusCount(previousStatus, -1);
+                    this.updateStatusCount(savedStatus, 1);
+
+                    const row = document.querySelector(`[data-order-row="${id}"]`);
+                    if (row) {
+                        row.dataset.orderStatus = savedStatus;
+                    }
+
+                    if (this.selectedStatus && this.selectedStatus !== savedStatus) {
+                        document.querySelector(`[data-order-row="${id}"]`)?.remove();
+                        this.ensureEmptyTableState();
+                    }
+                }
+
+                window.toast.success(response.data?.message || 'Status order mesin berhasil diperbarui.');
+            } catch (error) {
+                select.value = previousStatus;
+                this.syncInlineStatusSelect(select, previousStatus);
+                window.toast.error(error.response?.data?.message || 'Gagal memperbarui status order mesin.');
+            } finally {
+                select.disabled = false;
+                this.syncInlineStatusSelect(select, select.dataset.previousStatus || select.value);
+            }
+        },
+
+        async submitShippingNoteModal() {
+            if (!this.shippingNoteModal.orderId || !this.shippingNoteModal.select) {
+                this.closeShippingNoteModal(true);
+                return;
+            }
+
+            this.shippingNoteModal.submitting = true;
+
+            const { orderId, select, previousStatus, nextStatus, note } = this.shippingNoteModal;
+
+            await this.persistInlineStatusChange(orderId, select, previousStatus, nextStatus, note);
+            this.closeShippingNoteModal(false);
+        },
+
+        async handleInlineStatusChange(id, event) {
+            const select = event?.target;
+            if (!select) {
+                return;
+            }
+
+            const previousStatus = String(select.dataset.previousStatus || '');
+            const nextStatus = String(select.value || '');
+
+            if (!nextStatus || previousStatus === nextStatus) {
+                return;
+            }
+
+            if (nextStatus === 'in_shipping') {
+                this.openShippingNoteModal(id, select, previousStatus, nextStatus);
+                return;
+            }
+
+            await this.persistInlineStatusChange(id, select, previousStatus, nextStatus);
         },
 
         escapeHtml(value) {
@@ -1638,7 +1996,7 @@ function machineOrderPage(config) {
         },
 
         async loadOrder(id) {
-            this.loading = true;
+            this.fetchingOrder = true;
 
             try {
                 const response = await axios.get(`{{ route('machine-order.show', ['id' => '__ID__']) }}`.replace('__ID__', id));
@@ -1677,6 +2035,7 @@ function machineOrderPage(config) {
                         notes: item.notes || '',
                     })),
                 };
+                this.orderLogs = [...(data.logs || [])].reverse();
 
                 this.showModal = true;
                 this.originalSnapshot = this.snapshotState();
@@ -1684,7 +2043,7 @@ function machineOrderPage(config) {
                 const message = error.response?.data?.message || 'Gagal memuat detail order.';
                 window.toast.error(message);
             } finally {
-                this.loading = false;
+                this.fetchingOrder = false;
             }
         },
 

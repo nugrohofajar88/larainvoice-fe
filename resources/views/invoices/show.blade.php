@@ -4,6 +4,18 @@
 
 @section('content')
 @php $sisa = $invoice['grand_total'] - $invoice['paid']; @endphp
+@php
+    $paymentTypeMeta = function ($payment) {
+        $type = $payment['payment_type'] ?? (!empty($payment['is_dp']) ? 'cicilan' : 'pelunasan');
+
+        return match ($type) {
+            'dp' => ['label' => 'DP', 'class' => 'badge-warning'],
+            'cicilan' => ['label' => 'Cicilan', 'class' => 'badge-warning'],
+            'refund' => ['label' => 'Refund', 'class' => 'badge-danger'],
+            default => ['label' => 'Pelunasan', 'class' => 'badge-success'],
+        };
+    };
+@endphp
 
 <div class="flex items-center justify-between mb-6">
     <div>
@@ -95,13 +107,14 @@
                     <p class="text-sm text-slate-400 text-center py-4">Belum ada pembayaran</p>
                 @else
                     @foreach($payments as $pay)
+                    @php($paymentBadge = $paymentTypeMeta($pay))
                     <div class="flex items-start justify-between pb-3 border-b border-slate-100 last:border-0 last:pb-0">
                         <div>
                             <p class="text-sm font-semibold">Rp {{ number_format($pay['amount']) }}</p>
                             <p class="text-xs text-slate-500">{{ $pay['method'] }} - {{ date('d/m/Y', strtotime($pay['date'])) }}</p>
                             <p class="text-xs text-slate-400">{{ $pay['note'] }}</p>
                         </div>
-                        <span class="{{ $pay['is_dp'] ? 'badge-warning' : 'badge-success' }}">{{ $pay['is_dp'] ? 'Cicilan' : 'Lunas' }}</span>
+                        <span class="{{ $paymentBadge['class'] }}">{{ $paymentBadge['label'] }}</span>
                     </div>
                     @endforeach
                 @endif
