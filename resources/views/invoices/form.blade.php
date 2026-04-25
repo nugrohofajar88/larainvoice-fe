@@ -237,14 +237,14 @@
                                         <span class="text-slate-500">Subtotal</span>
                                         <span class="font-mono font-semibold" x-text="currency(subtotal)"></span>
                                     </div>
-                                    <div class="flex items-center justify-between gap-4" x-show="invoiceType === 'sales'" style="display: none;">
-                                        <label class="text-sm text-slate-500">Diskon global</label>
+                                    <div class="flex items-center justify-between gap-4">
+                                        <label class="text-sm text-slate-500">Diskon invoice</label>
                                         <div class="flex items-center gap-2">
                                             <input type="number" name="discount_pct" x-model.number="discountPct" @input="recalculateTotals()" min="0" max="100" class="form-input w-20 text-right">
                                             <span class="text-sm text-slate-400">%</span>
                                         </div>
                                     </div>
-                                    <div class="flex justify-between text-sm text-red-600" x-show="invoiceType === 'sales'" style="display: none;">
+                                    <div class="flex justify-between text-sm text-red-600">
                                         <span>Diskon</span>
                                         <span class="font-mono" x-text="currency(discountAmount)"></span>
                                     </div>
@@ -262,10 +262,10 @@
                                 Item tanpa cutting akan masuk ke <strong>In-process</strong>, sedangkan invoice yang punya cutting akan masuk ke <strong>Pending</strong>.
                             </p>
                             <p x-show="invoiceType === 'machine_order'" class="text-xs text-slate-500 mt-2" style="display: none;">
-                                Invoice order mesin dibuat dari snapshot machine order yang sudah selesai atau siap ditagihkan.
+                                Invoice order mesin dibuat dari snapshot order kerja dan bisa ditambah biaya manual bila diperlukan.
                             </p>
                             <p x-show="invoiceType === 'service_order'" class="text-xs text-slate-500 mt-2" style="display: none;">
-                                Invoice order jasa dibuat dari order servis atau pelatihan yang sudah siap ditagihkan.
+                                Invoice order jasa dibuat dari order servis atau pelatihan yang siap ditagihkan, lalu bisa disesuaikan sebelum diterbitkan.
                             </p>
                         </div>
                     </div>
@@ -276,13 +276,13 @@
                         <div>
                             <h2 class="font-bold text-slate-900">Daftar Item</h2>
                             <p class="text-sm text-slate-500 mt-1" x-text="invoiceType === 'machine_order'
-                                ? 'Item ditarik otomatis dari machine order yang dipilih.'
+                                ? 'Item dasar ditarik dari order mesin terpilih. Tambahkan biaya manual bila diperlukan.'
                                 : (invoiceType === 'service_order'
-                                    ? 'Item ditarik dari order jasa terpilih dan masih bisa disesuaikan.'
+                                    ? 'Item dasar ditarik dari order jasa terpilih dan masih bisa disesuaikan sebelum invoice diterbitkan.'
                                     : 'Tambah item dari master plat, component, tipe biaya, atau cutting price.')"></p>
                         </div>
-                        <button type="button" x-show="invoiceType === 'sales'" @click="openItemModal()" class="btn btn-primary" style="display: none;">
-                            <span>Tambah Item</span>
+                        <button type="button" x-show="invoiceType === 'sales' || invoiceType === 'machine_order' || invoiceType === 'service_order'" @click="openItemModal()" class="btn btn-primary" style="display: none;"
+                            x-text="invoiceType === 'sales' ? 'Tambah Item' : 'Tambah Biaya'">
                         </button>
                     </div>
 
@@ -295,7 +295,7 @@
                                     <th class="w-24 text-right">Qty</th>
                                     <th class="w-28 text-right">Menit</th>
                                     <th class="w-36 text-right">Harga</th>
-                                    <th class="w-24 text-right">Disc %</th>
+                                    <th class="w-24 text-right" x-show="invoiceType === 'sales'" style="display: none;">Disc %</th>
                                     <th class="w-40 text-right">Subtotal</th>
                                     <th class="w-16"></th>
                                 </tr>
@@ -327,7 +327,18 @@
                                             ></span>
                                         </td>
                                         <td>
-                                            <div class="font-semibold text-slate-900" x-text="item.name"></div>
+                                            <div class="flex items-center gap-2">
+                                                <div class="font-semibold text-slate-900" x-text="item.name"></div>
+                                                <span
+                                                    x-show="isWorkOrderInvoice"
+                                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                                                    :class="item.product_type === 'cost_type'
+                                                        ? 'bg-amber-100 text-amber-700'
+                                                        : 'bg-slate-100 text-slate-600'"
+                                                    x-text="item.product_type === 'cost_type' ? 'Biaya Tambahan' : 'Item Dasar'"
+                                                    style="display: none;"
+                                                ></span>
+                                            </div>
                                             <div class="text-xs text-slate-400" x-text="item.description"></div>
                                             <template x-if="invoiceType === 'sales'">
                                                 <div>
@@ -339,6 +350,13 @@
                                                     <input type="hidden" :name="`items[${index}][pricing_mode]`" :value="item.pricing_mode || ''">
                                                 </div>
                                             </template>
+                                            <template x-if="invoiceType === 'machine_order'">
+                                                <div>
+                                                    <input type="hidden" :name="`items[${index}][description]`" :value="[item.name, item.description].filter(Boolean).join(' - ')">
+                                                    <input type="hidden" :name="`items[${index}][unit]`" :value="item.unit || (item.product_type === 'cost_type' ? 'biaya' : 'tagihan')">
+                                                    <input type="hidden" :name="`items[${index}][cost_type_id]`" :value="item.cost_type_id || ''">
+                                                </div>
+                                            </template>
                                             <template x-if="invoiceType === 'service_order'">
                                                 <div>
                                                     <input type="hidden" :name="`items[${index}][description]`" :value="[item.name, item.description].filter(Boolean).join(' - ')">
@@ -348,7 +366,7 @@
                                             </template>
                                         </td>
                                         <td>
-                                            <input type="number" min="1" class="form-input text-right" :name="`items[${index}][qty]`" x-model.number="item.qty" @input="recalculateItem(index)" :readonly="invoiceType === 'machine_order'">
+                                            <input type="number" min="1" class="form-input text-right" :name="`items[${index}][qty]`" x-model.number="item.qty" @input="recalculateItem(index)" :readonly="invoiceType === 'machine_order' && item.product_type !== 'cost_type'">
                                         </td>
                                         <td>
                                             <input
@@ -359,27 +377,37 @@
                                                 x-model.number="item.minutes"
                                                 @input="recalculateItem(index)"
                                                 :disabled="item.product_type !== 'cutting' || item.pricing_mode !== 'per-minute'"
-                                                :readonly="invoiceType === 'machine_order'"
+                                                :readonly="invoiceType === 'machine_order' && item.product_type !== 'cost_type'"
                                             >
                                         </td>
                                         <td>
                                             <input
-                                                type="number"
-                                                min="0"
+                                                type="hidden"
+                                                :name="`items[${index}][price]`"
+                                                :value="item.price || 0"
+                                            >
+                                            <input
+                                                type="text"
+                                                inputmode="numeric"
                                                 class="form-input text-right"
                                                 :class="!item.isPriceEditable ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''"
-                                                :name="`items[${index}][price]`"
-                                                x-model.number="item.price"
-                                                @input="recalculateItem(index)"
-                                                :readonly="invoiceType === 'machine_order'"
+                                                x-model="item.price_display"
+                                                @input="handleItemPriceInput(index, $event)"
+                                                :readonly="invoiceType === 'machine_order' && item.product_type !== 'cost_type'"
                                             >
                                         </td>
-                                        <td>
+                                        <td x-show="invoiceType === 'sales'" style="display: none;">
                                             <input type="number" min="0" max="100" class="form-input text-right" :name="`items[${index}][discount_pct]`" x-model.number="item.discount_pct" @input="recalculateItem(index)" :readonly="invoiceType === 'machine_order' || invoiceType === 'service_order'">
                                         </td>
                                         <td class="text-right font-mono font-semibold" x-text="currency(item.subtotal)"></td>
                                         <td class="text-center">
-                                            <button type="button" x-show="invoiceType !== 'machine_order'" @click="removeItem(index)" class="text-red-500 hover:text-red-700" style="display: none;">Hapus</button>
+                                            <button
+                                                type="button"
+                                                x-show="invoiceType === 'sales' || item.product_type === 'cost_type'"
+                                                @click="removeItem(index)"
+                                                class="text-red-500 hover:text-red-700"
+                                                style="display: none;"
+                                            >Hapus</button>
                                         </td>
                                     </tr>
                                 </template>
@@ -468,7 +496,7 @@
                             <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
                                 <p class="font-semibold">Invoice mesin akan dibuat dari snapshot machine order terpilih.</p>
                                 <p class="mt-2 text-xs text-emerald-700">
-                                    Pembayaran lanjutan dicatat setelah invoice terbentuk melalui modul pembayaran, jadi form ini hanya dipakai untuk membuat tagihan.
+                                    Tinjau kembali item dasar dan biaya tambahan. Jika ada penyesuaian, kembali ke langkah Transaksi sebelum invoice diterbitkan.
                                 </p>
                             </div>
                         </div>
@@ -496,7 +524,18 @@
                             <template x-for="(item, index) in items" :key="`summary-${index}`">
                                 <div class="flex items-start justify-between gap-4 pb-3 border-b border-slate-100 last:border-b-0">
                                     <div>
-                                        <div class="font-semibold text-slate-900" x-text="item.name"></div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="font-semibold text-slate-900" x-text="item.name"></div>
+                                            <span
+                                                x-show="isWorkOrderInvoice"
+                                                class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                                                :class="item.product_type === 'cost_type'
+                                                    ? 'bg-amber-100 text-amber-700'
+                                                    : 'bg-slate-100 text-slate-600'"
+                                                x-text="item.product_type === 'cost_type' ? 'Biaya Tambahan' : 'Item Dasar'"
+                                                style="display: none;"
+                                            ></span>
+                                        </div>
                                         <div class="text-xs text-slate-400" x-text="item.description"></div>
                                     </div>
                                     <div class="text-right">
@@ -554,8 +593,10 @@
             <div class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden">
                 <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h2 class="text-xl font-black text-slate-900">Tambah Item</h2>
-                        <p class="text-sm text-slate-500 mt-1">Pilih dari katalog plat, component, tipe biaya, atau harga cutting.</p>
+                        <h2 class="text-xl font-black text-slate-900" x-text="invoiceType === 'sales' ? 'Tambah Item' : 'Tambah Biaya'"></h2>
+                        <p class="text-sm text-slate-500 mt-1" x-text="invoiceType === 'sales'
+                            ? 'Pilih dari katalog plat, component, tipe biaya, atau harga cutting.'
+                            : 'Tambahkan biaya manual yang perlu masuk ke tagihan akhir.'"></p>
                     </div>
                     <button type="button" @click="showItemModal = false" class="text-slate-400 hover:text-slate-700">Tutup</button>
                 </div>
@@ -563,16 +604,16 @@
                 <div class="p-6 space-y-5">
                     <div class="flex flex-col md:flex-row gap-4">
                         <div class="flex rounded-xl border border-slate-200 overflow-hidden">
-                            <button type="button" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'plate'" :class="catalogTab === 'plate' ? 'bg-brand text-white' : 'bg-white text-slate-600'">Plat</button>
-                            <button type="button" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'component'" :class="catalogTab === 'component' ? 'bg-brand text-white' : 'bg-white text-slate-600'">Component</button>
+                            <button type="button" x-show="invoiceType === 'sales'" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'plate'" :class="catalogTab === 'plate' ? 'bg-brand text-white' : 'bg-white text-slate-600'" style="display: none;">Plat</button>
+                            <button type="button" x-show="invoiceType === 'sales'" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'component'" :class="catalogTab === 'component' ? 'bg-brand text-white' : 'bg-white text-slate-600'" style="display: none;">Component</button>
                             <button type="button" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'cost_type'" :class="catalogTab === 'cost_type' ? 'bg-brand text-white' : 'bg-white text-slate-600'">Biaya</button>
-                            <button type="button" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'cutting'" :class="catalogTab === 'cutting' ? 'bg-brand text-white' : 'bg-white text-slate-600'">Cutting</button>
+                            <button type="button" x-show="invoiceType === 'sales'" class="px-4 py-2 text-sm font-semibold" @click="catalogTab = 'cutting'" :class="catalogTab === 'cutting' ? 'bg-brand text-white' : 'bg-white text-slate-600'" style="display: none;">Cutting</button>
                         </div>
-                        <input type="text" x-model="catalogQuery" class="form-input md:flex-1" placeholder="Cari item...">
+                        <input type="text" x-model="catalogQuery" class="form-input md:flex-1" :placeholder="invoiceType === 'sales' ? 'Cari item...' : 'Cari biaya tambahan...'">
                     </div>
 
                     <div class="max-h-[28rem] overflow-auto rounded-2xl border border-slate-200">
-                        <table x-show="catalogTab === 'plate'" class="table-base min-w-full" style="display: none;">
+                        <table x-show="invoiceType === 'sales' && catalogTab === 'plate'" class="table-base min-w-full" style="display: none;">
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th>Jenis Plat</th>
@@ -593,7 +634,7 @@
                             </tbody>
                         </table>
 
-                        <table x-show="catalogTab === 'component'" class="table-base min-w-full" style="display: none;">
+                        <table x-show="invoiceType === 'sales' && catalogTab === 'component'" class="table-base min-w-full" style="display: none;">
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th>Nama</th>
@@ -627,7 +668,7 @@
                             </tbody>
                         </table>
 
-                        <table x-show="catalogTab === 'cutting'" class="table-base min-w-full" style="display: none;">
+                        <table x-show="invoiceType === 'sales' && catalogTab === 'cutting'" class="table-base min-w-full" style="display: none;">
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th>Jenis Plat</th>
@@ -666,8 +707,10 @@
                             x-show="(catalogTab === 'cutting' ? filteredCuttingRows.length : filteredCatalog.length) === 0"
                             class="px-4 py-8 text-center text-sm text-slate-400"
                             style="display: none;"
+                            x-text="invoiceType === 'sales'
+                                ? 'Belum ada item yang cocok dengan pencarian.'
+                                : 'Belum ada biaya tambahan yang cocok dengan pencarian.'"
                         >
-                            Tidak ada data yang cocok.
                         </div>
                     </div>
                 </div>
@@ -759,6 +802,10 @@ function invoiceWorkflow(config) {
 
         get isServiceOrderInvoice() {
             return this.invoiceType === 'service_order';
+        },
+
+        get isWorkOrderInvoice() {
+            return this.isMachineOrderInvoice || this.isServiceOrderInvoice;
         },
 
         get currentCatalog() {
@@ -877,16 +924,6 @@ function invoiceWorkflow(config) {
         },
 
         async openItemModal() {
-            if (this.isMachineOrderInvoice) {
-                window.toast.error('Item order mesin ditarik otomatis dari nomor order yang dipilih.');
-                return;
-            }
-
-            if (this.isServiceOrderInvoice) {
-                window.toast.error('Item order jasa ditarik dari order jasa yang dipilih.');
-                return;
-            }
-
             const branchId = this.getSelectedBranchId();
 
             if (this.isSuperAdmin && !branchId) {
@@ -895,6 +932,9 @@ function invoiceWorkflow(config) {
             }
 
             await this.ensureMasterDataLoaded(branchId);
+            if (this.isMachineOrderInvoice || this.isServiceOrderInvoice) {
+                this.catalogTab = 'cost_type';
+            }
             this.showItemModal = true;
         },
 
@@ -1279,6 +1319,8 @@ function invoiceWorkflow(config) {
                 name: catalogItem.name,
                 description: catalogItem.description,
                 stock_qty: catalogItem.stock_qty,
+                unit: catalogItem.unit || (catalogItem.product_type === 'cost_type' ? 'biaya' : null),
+                price_display: this.formatNumberInput(catalogItem.price || 0),
             };
 
             this.decorateItem(item);
@@ -1321,6 +1363,7 @@ function invoiceWorkflow(config) {
                 name: source?.name || item.desc || 'Item',
                 description: source?.description || item.desc || '',
                 stock_qty: source?.stock_qty ?? null,
+                price_display: this.formatNumberInput(item.price || source?.price || 0),
             };
 
             this.decorateItem(normalized);
@@ -1343,8 +1386,16 @@ function invoiceWorkflow(config) {
             item.effectiveUnitPrice = item.product_type === 'cutting' && item.pricing_mode === 'per-minute'
                 ? Number(item.price || 0) * Math.max(Number(item.minutes || 0), 0)
                 : Number(item.price || 0);
+            item.price_display = this.formatNumberInput(item.price || 0);
 
             item.subtotal = this.calculateItemSubtotal(item);
+        },
+
+        handleItemPriceInput(index, event) {
+            const item = this.items[index];
+            item.price = this.parseNumberInput(event.target.value);
+            item.price_display = this.formatNumberInput(item.price);
+            this.recalculateItem(index);
         },
 
         calculateItemSubtotal(item) {
@@ -1383,6 +1434,7 @@ function invoiceWorkflow(config) {
             this.selectedServiceOrder = null;
             this.discountPct = 0;
             this.step = 1;
+            this.catalogTab = this.isWorkOrderInvoice ? 'cost_type' : 'plate';
 
             if (this.isMachineOrderInvoice) {
                 this.payment.payment_method = 'Pay Later';
@@ -1561,6 +1613,19 @@ function invoiceWorkflow(config) {
                 if (!machineOrderInput?.value) {
                     event.preventDefault();
                     window.toast.error('Pilih nomor order mesin terlebih dahulu.');
+                    return false;
+                }
+
+                if (this.items.length === 0) {
+                    event.preventDefault();
+                    window.toast.error('Tambahkan minimal satu item invoice order mesin.');
+                    return false;
+                }
+
+                const invalidMachineOrderItem = this.items.find((item) => !String(item.description || item.name || '').trim() || !(Number(item.qty) > 0) || Number(item.price) < 0);
+                if (invalidMachineOrderItem) {
+                    event.preventDefault();
+                    window.toast.error('Pastikan item order mesin memiliki deskripsi, qty, dan harga yang valid.');
                     return false;
                 }
 
