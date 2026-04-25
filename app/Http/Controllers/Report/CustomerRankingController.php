@@ -36,23 +36,22 @@ class CustomerRankingController extends Controller
         $currentTotals = $invoices
             ->filter(fn ($invoice) => Carbon::parse($invoice['date'])->between($currentStart, $currentEnd))
             ->groupBy('customer')
-            ->map(fn ($items) => collect($items)->sum('grand_total'))
-            ->sortDesc()
-            ->keys()
-            ->values();
+            ->map(fn ($items) => (float) collect($items)->sum('grand_total'))
+            ->sortDesc();
 
         $previousTotals = $invoices
             ->filter(fn ($invoice) => Carbon::parse($invoice['date'])->between($previousStart, $previousEnd))
             ->groupBy('customer')
-            ->map(fn ($items) => collect($items)->sum('grand_total'))
-            ->sortDesc()
-            ->keys()
-            ->values();
+            ->map(fn ($items) => (float) collect($items)->sum('grand_total'))
+            ->sortDesc();
 
-        $rankedCustomers = $customers->map(function ($customer) use ($currentTotals, $previousTotals) {
+        $currentRanks = $currentTotals->keys()->values();
+        $previousRanks = $previousTotals->keys()->values();
+
+        $rankedCustomers = $customers->map(function ($customer) use ($currentTotals, $previousTotals, $currentRanks, $previousRanks) {
             $name = $customer['full_name'] ?? '-';
-            $currentRank = $currentTotals->search($name);
-            $previousRank = $previousTotals->search($name);
+            $currentRank = $currentRanks->search($name);
+            $previousRank = $previousRanks->search($name);
 
             return [
                 'id' => $customer['id'],
@@ -60,6 +59,8 @@ class CustomerRankingController extends Controller
                 'branch' => $customer['branch']['name'] ?? '-',
                 'ranking_now' => $currentRank === false ? 999 : ($currentRank + 1),
                 'ranking_last' => $previousRank === false ? 999 : ($previousRank + 1),
+                'total_current' => $currentTotals->get($name, 0),
+                'total_previous' => $previousTotals->get($name, 0),
             ];
         })->filter(fn ($item) => $item['ranking_now'] !== 999 || $item['ranking_last'] !== 999);
 
@@ -81,9 +82,11 @@ class CustomerRankingController extends Controller
                 $item['branch'] ?? '-',
                 $item['ranking_now'] ?? '-',
                 $item['ranking_last'] ?? '-',
+                $item['total_current'] ?? 0,
+                $item['total_previous'] ?? 0,
             ]);
 
-            return $this->streamCsvDownload('ranking-pelanggan.csv', ['Pelanggan', 'Cabang', 'Ranking Sekarang', 'Ranking Sebelumnya'], $rows);
+            return $this->streamCsvDownload('ranking-pelanggan.csv', ['Pelanggan', 'Cabang', 'Ranking Sekarang', 'Ranking Sebelumnya', 'Total Bulan Ini', 'Total Bulan Lalu'], $rows);
         }
 
         return view('reports.ranking-pelanggan', compact('customers'));

@@ -8,7 +8,7 @@ $subtitle  = $subtitle  ?? '';
 @section('page-title', 'Laporan Ranking Pelanggan')
 @section('content')
 <div class="flex items-center justify-between mb-6">
-    <div><h1 class="page-title">Ranking Pelanggan</h1><p class="text-sm text-slate-500 mt-1">Perbandingan ranking bulan lalu & berjalan</p></div>
+    <div><h1 class="page-title">Ranking Pelanggan</h1><p class="text-sm text-slate-500 mt-1">Ranking dihitung dari total transaksi invoice per pelanggan pada bulan berjalan dibanding bulan sebelumnya.</p></div>
     <a href="{{ route('laporan.export.ranking-pelanggan', request()->query()) }}" class="btn-outline"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Export Excel</a>
 </div>
 <div class="card card-body mb-5 grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -25,6 +25,7 @@ $subtitle  = $subtitle  ?? '';
                         <th>Pelanggan</th>
                         <th>Cabang</th>
                         <th class="text-center">Ranking</th>
+                        <th class="text-right">Total Invoice</th>
                         <th class="text-right">Trend</th>
                     </tr>
                     <tr class="bg-slate-50/50">
@@ -39,6 +40,7 @@ $subtitle  = $subtitle  ?? '';
                                 class="w-full text-xs font-normal bg-white border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all"
                                 placeholder="Cari cabang...">
                         </th>
+                        <th class="py-2 px-4 shadow-inner"></th>
                         <th class="py-2 px-4 shadow-inner"></th>
                         <th class="py-2 px-4 shadow-inner text-center">
                             <button type="submit" class="hidden"></button>
@@ -60,6 +62,14 @@ $subtitle  = $subtitle  ?? '';
                             </div>
                         </td>
                         <td class="text-right">
+                            <div class="text-sm font-semibold text-slate-900">
+                                Rp {{ number_format((float) ($item['total_current'] ?? 0), 0, ',', '.') }}
+                            </div>
+                            <div class="text-[11px] text-slate-400">
+                                Bulan lalu: Rp {{ number_format((float) ($item['total_previous'] ?? 0), 0, ',', '.') }}
+                            </div>
+                        </td>
+                        <td class="text-right">
                             @if($item['ranking_now'] < $item['ranking_last'])
                                 <span class="text-green-600 font-bold text-xs flex items-center justify-end gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
@@ -71,13 +81,13 @@ $subtitle  = $subtitle  ?? '';
                                     Turun
                                 </span>
                             @else
-                                <span class="text-slate-400 text-xs">â€”</span>
+                                <span class="text-slate-400 text-xs">Tetap</span>
                             @endif
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="py-12 text-center text-slate-400">
+                        <td colspan="6" class="py-12 text-center text-slate-400">
                             Tidak ada data ranking ditemukan.
                         </td>
                     </tr>
